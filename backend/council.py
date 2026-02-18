@@ -5,6 +5,62 @@ from .llm_client import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, TITLE_MODEL
 
 
+def _build_chairman_prompt(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]],
+    stage2_results: List[Dict[str, Any]],
+) -> str:
+    """Build the chairman synthesis prompt."""
+    stage1_text = "\n\n".join([
+        f"Model: {result['model']}\nResponse: {result['response']}"
+        for result in stage1_results
+    ])
+
+    stage2_text = "\n\n".join([
+        f"Model: {result['model']}\nRanking: {result['ranking']}"
+        for result in stage2_results
+    ])
+
+    return f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
+
+Original Question: {user_query}
+
+STAGE 1 - Individual Responses:
+{stage1_text}
+
+STAGE 2 - Peer Rankings:
+{stage2_text}
+
+Your task as Chairman is to synthesize all of this information into a single, comprehensive, accurate answer to the user's original question. Consider:
+- The individual responses and their insights
+- The peer rankings and what they reveal about response quality
+- Any patterns of agreement or disagreement
+
+Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
+
+
+def stage3_prepare(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]],
+    stage2_results: List[Dict[str, Any]],
+) -> Tuple[str, List[Dict[str, str]]]:
+    """
+    Prepare the model name and messages for Stage 3 synthesis.
+
+    Returns:
+        Tuple of (synthesis_model_name, messages)
+    """
+    chairman_prompt = _build_chairman_prompt(user_query, stage1_results, stage2_results)
+    messages = [{"role": "user", "content": chairman_prompt}]
+
+    available_models = [result["model"] for result in stage1_results]
+    synthesis_model = (
+        CHAIRMAN_MODEL if CHAIRMAN_MODEL in available_models else available_models[0]
+    )
+
+    return synthesis_model, messages
+
+
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
@@ -128,40 +184,7 @@ async def stage3_synthesize_final(
     Returns:
         Dict with 'model' and 'response' keys
     """
-    # Build comprehensive context for chairman
-    stage1_text = "\n\n".join([
-        f"Model: {result['model']}\nResponse: {result['response']}"
-        for result in stage1_results
-    ])
-
-    stage2_text = "\n\n".join([
-        f"Model: {result['model']}\nRanking: {result['ranking']}"
-        for result in stage2_results
-    ])
-
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
-
-Original Question: {user_query}
-
-STAGE 1 - Individual Responses:
-{stage1_text}
-
-STAGE 2 - Peer Rankings:
-{stage2_text}
-
-Your task as Chairman is to synthesize all of this information into a single, comprehensive, accurate answer to the user's original question. Consider:
-- The individual responses and their insights
-- The peer rankings and what they reveal about response quality
-- Any patterns of agreement or disagreement
-
-Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
-
-    messages = [{"role": "user", "content": chairman_prompt}]
-
-    available_models = [result["model"] for result in stage1_results]
-    synthesis_model = (
-        CHAIRMAN_MODEL if CHAIRMAN_MODEL in available_models else available_models[0]
-    )
+    synthesis_model, messages = stage3_prepare(user_query, stage1_results, stage2_results)
 
     # Query the chairman model (or a fallback model that already responded in Stage 1)
     response = await query_model(synthesis_model, messages)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import StagePanel from './components/StagePanel';
 import { api } from './api';
 import './App.css';
 
@@ -10,6 +11,8 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [runtimeConfig, setRuntimeConfig] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stagePanelOpen, setStagePanelOpen] = useState(true);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -169,6 +172,17 @@ function App() {
             });
             break;
 
+          case 'stage3_token':
+            updateLatestAssistantMessage((message) => {
+              if (!message.stage3) {
+                message.stage3 = { model: event.model || '', response: event.token };
+              } else {
+                message.stage3 = { ...message.stage3, response: message.stage3.response + event.token };
+              }
+              return message;
+            });
+            break;
+
           case 'stage3_complete':
             updateLatestAssistantMessage((message) => {
               message.stage3 = event.data;
@@ -220,6 +234,8 @@ function App() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         runtimeConfig={runtimeConfig}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(prev => !prev)}
       />
       <ChatInterface
         conversation={currentConversation}
@@ -227,6 +243,11 @@ function App() {
         onNewConversation={handleNewConversation}
         isLoading={isLoading}
         runtimeConfig={runtimeConfig}
+      />
+      <StagePanel
+        conversation={currentConversation}
+        isOpen={stagePanelOpen}
+        onToggle={() => setStagePanelOpen(prev => !prev)}
       />
     </div>
   );

@@ -6,6 +6,8 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
   runtimeConfig,
+  isOpen,
+  onToggle,
 }) {
   const modeLabel = runtimeConfig?.ollama_mode || 'local';
   const endpointLabel = runtimeConfig?.endpoint || 'Waiting for backend...';
@@ -23,7 +25,11 @@ export default function Sidebar({
   };
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <button className="sidebar-toggle" onClick={onToggle} aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
+        <span className={`toggle-icon ${isOpen ? 'open' : ''}`}>›</span>
+      </button>
+
       <div className="sidebar-header">
         <div className="sidebar-title-row">
           <h1>LLM Council</h1>

@@ -1,7 +1,8 @@
 """Ollama API client supporting both local and cloud deployments."""
 
+import json
 import httpx
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from .config import (
     OLLAMA_MODE,
     OLLAMA_LOCAL_CHAT_URL,
@@ -287,3 +288,120 @@ async def query_models_parallel(
 
     # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
+
+
+# ---------------------------------------------------------------------------
+# Streaming helpers – yield content tokens from Ollama streaming responses.
+# ---------------------------------------------------------------------------
+
+async def query_model_stream(
+    model: str,
+    messages: List[Dict[str, str]],
+    timeout: float = 180.0,
+) -> AsyncGenerator[str, None]:
+    """Yield content token strings from a streaming Ollama response."""
+    if OLLAMA_MODE == "cloud":
+        async for token in _query_ollama_cloud_stream(model, messages, timeout):
+            yield token
+    else:
+        async for token in _query_ollama_local_stream(model, messages, timeout):
+            yield token
+
+
+async def _query_ollama_local_stream(
+    model: str,
+    messages: List[Dict[str, str]],
+    timeout: float = 180.0,
+) -> AsyncGenerator[str, None]:
+    """Stream tokens from local Ollama /api/chat endpoint."""
+    payload = {
+        "model": model,
+        "messages": messages or [{"role": "user", "content": "Hello"}],
+        "stream": True,
+    }
+    headers = {"Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST", OLLAMA_LOCAL_CHAT_URL, json=payload, headers=headers
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    content = data.get("message", {}).get("content", "")
+                    if content:
+                        yield content
+                    if data.get("done"):
+                        break
+    except Exception as e:
+        print(f"Error streaming local Ollama model {model}: {e}")
+
+
+async def _query_ollama_cloud_stream(
+    model: str,
+    messages: List[Dict[str, str]],
+    timeout: float = 180.0,
+) -> AsyncGenerator[str, None]:
+    """Stream tokens from Ollama Cloud API."""
+    if not OLLAMA_CLOUD_API_KEY:
+        print("Error: OLLAMA_CLOUD_API_KEY not configured for cloud mode")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {OLLAMA_CLOUD_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+    }
+
+    endpoint_candidates = _cloud_endpoint_candidates(OLLAMA_CLOUD_API_URL)
+
+    for endpoint in endpoint_candidates:
+        try:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+                async with client.stream(
+                    "POST", endpoint, json=payload, headers=headers
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        # Handle both OpenAI and native Ollama response format
+                        choices = data.get("choices", [])
+                        if choices and isinstance(choices, list):
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content", "")
+                        else:
+                            content = data.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+                        if data.get("done"):
+                            break
+                    # Success – don't try other endpoints
+                    return
+        except httpx.HTTPStatusError as e:
+            detail = _extract_error_detail(e.response)
+            if _is_model_not_found(e.response.status_code, detail):
+                print(f"Error streaming Ollama Cloud model {model}: {detail}")
+                return
+            if e.response.status_code == 404 and endpoint != endpoint_candidates[-1]:
+                continue
+            print(f"Error streaming Ollama Cloud model {model}: HTTP {e.response.status_code} – {detail}")
+            return
+        except Exception as e:
+            print(f"Error streaming Ollama Cloud model {model}: {e}")
+            return

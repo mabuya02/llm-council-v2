@@ -10,7 +10,8 @@ import json
 import asyncio
 
 from . import storage
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, stage3_prepare, calculate_aggregate_rankings
+from .llm_client import query_model_stream
 from .config import (
     OLLAMA_MODE,
     COUNCIL_MODELS,
@@ -191,9 +192,24 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
-            # Stage 3: Synthesize final answer
+            # Stage 3: Stream final answer token by token
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            synthesis_model, synthesis_messages = stage3_prepare(
+                request.content, stage1_results, stage2_results
+            )
+            stage3_response_text = ""
+            async for token in query_model_stream(synthesis_model, synthesis_messages):
+                stage3_response_text += token
+                yield f"data: {json.dumps({'type': 'stage3_token', 'token': token, 'model': synthesis_model})}\n\n"
+
+            # If streaming produced no output, fall back to non-streaming call
+            if not stage3_response_text:
+                stage3_result = await stage3_synthesize_final(
+                    request.content, stage1_results, stage2_results
+                )
+            else:
+                stage3_result = {"model": synthesis_model, "response": stage3_response_text}
+
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
