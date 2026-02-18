@@ -1,0 +1,145 @@
+.stage2 {
+  background: rgba(10, 19, 30, 0.78);
+  border-color: rgba(99, 213, 255, 0.3);
+}
+
+.stage2 h4 {
+  margin: 16px 0 8px 0;
+  color: #b8e6ff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stage2 h4:first-of-type {
+  margin-top: 0;
+}
+
+.stage-description {
+  margin: 0 0 12px 0;
+  color: #8da8bc;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.aggregate-rankings {
+  background: rgba(12, 26, 42, 0.74);
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(99, 213, 255, 0.35);
+}
+
+.aggregate-rankings h4 {
+  margin: 0 0 10px 0;
+  color: #9ce4ff;
+  font-size: 12px;
+}
+
+.aggregate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aggregate-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: rgba(6, 11, 18, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(99, 213, 255, 0.2);
+}
+
+.rank-position {
+  color: #89dbff;
+  font-weight: 800;
+  font-size: 14px;
+  min-width: 32px;
+}
+
+.rank-model {
+  flex: 1;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rank-score {
+  color: #95b8cc;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.stage2 .tabs {
+  margin-bottom: 12px;
+}
+
+.stage2 .tab {
+  background: rgba(18, 34, 54, 0.62);
+  border-color: rgba(99, 213, 255, 0.25);
+  color: #9fc3d7;
+}
+
+.stage2 .tab:hover {
+  background: rgba(22, 41, 64, 0.82);
+  border-color: rgba(99, 213, 255, 0.42);
+}
+
+.stage2 .tab.active {
+  background: rgba(99, 213, 255, 0.2);
+  border-color: rgba(99, 213, 255, 0.52);
+  color: #d4efff;
+}
+
+.stage2 .tab-content {
+  background: rgba(6, 11, 18, 0.62);
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(99, 213, 255, 0.25);
+  margin-bottom: 14px;
+}
+
+.ranking-model {
+  color: #82a3b5;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  margin-bottom: 10px;
+}
+
+.ranking-content {
+  color: var(--text);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.parsed-ranking {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(99, 213, 255, 0.24);
+}
+
+.parsed-ranking strong {
+  color: #9ce4ff;
+  font-size: 12px;
+}
+
+.parsed-ranking ol {
+  margin: 8px 0 0 0;
+  padding-left: 22px;
+  color: var(--text);
+}
+
+.parsed-ranking li {
+  margin: 3px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.rank-count {
+  color: #7896a6;
+  font-size: 11px;
+}

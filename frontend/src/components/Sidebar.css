@@ -1,0 +1,248 @@
+.sidebar {
+  width: 44px;
+  background: rgba(8, 12, 20, 0.58);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  transition: width 220ms ease;
+  backdrop-filter: blur(8px);
+}
+
+.sidebar:hover,
+.sidebar:focus-within {
+  width: 280px;
+}
+
+.sidebar-header {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-header h1,
+.sidebar-subtitle,
+.sidebar-mode,
+.conversation-title,
+.conversation-meta,
+.no-conversations {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateX(-6px);
+  transition: opacity 160ms ease, max-height 160ms ease, transform 160ms ease;
+}
+
+.sidebar:hover .sidebar-header h1,
+.sidebar:focus-within .sidebar-header h1,
+.sidebar:hover .sidebar-subtitle,
+.sidebar:focus-within .sidebar-subtitle,
+.sidebar:hover .sidebar-mode,
+.sidebar:focus-within .sidebar-mode,
+.sidebar:hover .conversation-title,
+.sidebar:focus-within .conversation-title,
+.sidebar:hover .conversation-meta,
+.sidebar:focus-within .conversation-meta,
+.sidebar:hover .no-conversations,
+.sidebar:focus-within .no-conversations {
+  opacity: 1;
+  max-height: 120px;
+  transform: translateX(0);
+}
+
+.sidebar-header h1 {
+  font-family: var(--font-display);
+  font-size: 19px;
+  margin: 0;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+
+.sidebar-subtitle {
+  margin: 8px 0 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.sidebar-mode {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+}
+
+.sidebar-mode-local {
+  background: var(--success-soft);
+  border-color: rgba(82, 208, 114, 0.4);
+  color: #9ce8af;
+}
+
+.sidebar-mode-cloud {
+  background: var(--danger-soft);
+  border-color: rgba(255, 149, 119, 0.44);
+  color: #ffc2ae;
+}
+
+.new-conversation-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: transparent;
+  font-size: 0;
+  cursor: pointer;
+  position: relative;
+}
+
+.new-conversation-btn::after {
+  content: '+';
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.sidebar:hover .new-conversation-btn,
+.sidebar:focus-within .new-conversation-btn {
+  width: 100%;
+  height: 34px;
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sidebar:hover .new-conversation-btn::after,
+.sidebar:focus-within .new-conversation-btn::after {
+  content: '';
+}
+
+.conversation-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.no-conversations {
+  padding: 10px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.conversation-item {
+  position: relative;
+  min-height: 32px;
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.conversation-item::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(139, 165, 255, 0.72);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 160ms ease;
+}
+
+.sidebar:hover .conversation-item::before,
+.sidebar:focus-within .conversation-item::before {
+  opacity: 0;
+}
+
+.conversation-item:hover {
+  background: rgba(139, 165, 255, 0.14);
+  border-color: rgba(139, 165, 255, 0.34);
+}
+
+.conversation-item.active {
+  background: rgba(99, 213, 255, 0.14);
+  border-color: rgba(99, 213, 255, 0.42);
+}
+
+.conversation-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.conversation-meta {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+@media (max-width: 980px) {
+  .sidebar,
+  .sidebar:hover,
+  .sidebar:focus-within {
+    width: 100%;
+    max-height: 28vh;
+  }
+
+  .sidebar-header h1,
+  .sidebar-subtitle,
+  .sidebar-mode,
+  .conversation-title,
+  .conversation-meta,
+  .no-conversations {
+    opacity: 1;
+    max-height: 120px;
+    transform: none;
+  }
+
+  .new-conversation-btn,
+  .sidebar:hover .new-conversation-btn,
+  .sidebar:focus-within .new-conversation-btn {
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .new-conversation-btn::after,
+  .sidebar:hover .new-conversation-btn::after,
+  .sidebar:focus-within .new-conversation-btn::after {
+    content: '';
+  }
+
+  .conversation-item::before {
+    display: none;
+  }
+}

@@ -1,0 +1,66 @@
+.stage3 {
+  background: rgba(10, 22, 16, 0.72);
+  border-color: rgba(82, 208, 114, 0.34);
+}
+
+.stage3-error {
+  background: rgba(31, 16, 13, 0.76);
+  border-color: rgba(255, 149, 119, 0.38);
+}
+
+.final-response {
+  background: rgba(5, 10, 16, 0.65);
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(82, 208, 114, 0.3);
+}
+
+.final-response-error {
+  border-color: rgba(255, 149, 119, 0.4);
+  background: rgba(23, 12, 9, 0.64);
+}
+
+.chairman-label {
+  color: #9ce8b0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  margin-bottom: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.final-response-error .chairman-label {
+  color: #ffc1ad;
+}
+
+.final-text {
+  color: var(--text);
+  line-height: 1.64;
+  font-size: 14px;
+}
+
+.stage3-recovery {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 149, 119, 0.32);
+}
+
+.stage3-recovery-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffbca7;
+  margin-bottom: 6px;
+}
+
+.stage3-recovery ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #e7b9aa;
+  font-size: 12px;
+}
+
+.stage3-recovery li {
+  margin: 3px 0;
+}
