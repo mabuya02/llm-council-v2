@@ -7,7 +7,8 @@
   background: linear-gradient(180deg, rgba(3, 5, 9, 0.86) 0%, rgba(2, 3, 6, 0.88) 100%);
   border: 1px solid var(--border);
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
   transition: width 240ms cubic-bezier(0.4, 0, 0.2, 1), min-width 240ms cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
