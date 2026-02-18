@@ -1,123 +1,193 @@
 # LLM Council
 
-![llmcouncil](header.jpg)
+## Introduction
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses Ollama to send your query to multiple LLMs running locally, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+![LLM Council](header.png)
 
-In a bit more detail, here is what happens when you submit a query:
+LLM Council is a local-first web app that runs the same prompt through multiple Ollama models, has them critique and rank each other, then produces a final synthesized answer from a designated chairman model.
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+## Inspiration
 
-## Vibe Code Alert
+This project builds on a similar project direction from [Andrej Karpathy](https://github.com/karpathy), extending the idea of using multiple LLMs as a collaborative thinking partner.
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+## What It Does
 
-## Setup
+- Runs one user prompt across multiple models (`COUNCIL_MODELS`)
+- Shows each model's raw answer (Stage 1)
+- Runs anonymized peer ranking across model outputs (Stage 2)
+- Streams the chairman's final synthesis token-by-token (Stage 3)
+- Stores conversations as JSON files on disk
+- Auto-generates conversation titles from the first user message
 
-### 1. Install Dependencies
+## Hybrid Ollama Approach (Local or Cloud)
 
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
+LLM Council uses a hybrid runtime approach: users can choose **either** local Ollama **or** Ollama Cloud for the same council workflow.
 
-**Backend:**
-```bash
-uv sync
-```
+- `OLLAMA_MODE=local`: queries your local Ollama server (default: `http://localhost:11434`)
+- `OLLAMA_MODE=cloud`: queries Ollama Cloud endpoint (default: `https://ollama.com/api/chat`)
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
-```
+### Why this hybrid setup is useful
 
-### 2. Configure Ollama Mode
+- Local mode: better privacy, lower per-request cost, works offline once models are available.
+- Cloud mode: easier access to hosted models without local GPU constraints.
+- Same UI and same 3-stage council logic in both modes.
 
-The application supports both **local Ollama** and **Ollama Cloud** providers. Choose based on your needs:
+### Important runtime behavior
 
-#### **For Local Ollama (Free, Private):**
-```bash
-# Install Ollama from https://ollama.ai/
-# Start Ollama service
-ollama serve
+- You select one mode at a time via `.env`.
+- `COUNCIL_MODELS` must match the selected mode.
+- In local mode, models must be installed in your local Ollama instance.
+- In cloud mode, model IDs must be valid cloud-available model IDs for your account.
+- If `OLLAMA_MODE=cloud` and `OLLAMA_CLOUD_API_KEY` is missing, requests will fail and the UI shows a warning.
 
-# Pull required models
-ollama pull llama3.2:3b
-ollama pull llama3.1:8b
+## How the Council Votes and Decides
 
-# Configure .env for local usage
-echo "OLLAMA_MODE=local" > .env
-echo "OLLAMA_API_URL=http://localhost:11434" >> .env
-```
+The app does not simply pick one “winning” model answer. Instead, it runs a multi-stage deliberation and synthesis process.
 
-#### **For Ollama Cloud (Paid, Fast):**
-```bash
-# Get API key from https://ollama.ai/
-# Configure .env for cloud usage
-echo "OLLAMA_MODE=cloud" > .env
-echo "OLLAMA_CLOUD_API_URL=https://ollama.com/api/chat" >> .env
-echo "OLLAMA_CLOUD_API_KEY=your_api_key_here" >> .env
-```
+### Stage 1: Individual Responses
 
-In cloud mode, your model names must exist in Ollama Cloud for your account. If requests return HTTP 404 with "model not found", update `COUNCIL_MODELS` in `.env`.
+1. The user prompt is sent to every model in `COUNCIL_MODELS`.
+2. Responses are collected in parallel.
+3. Failed model calls are skipped; successful outputs are kept.
 
-### 3. Configure Models (Optional)
+Output: a list of raw model responses (`model`, `response`).
 
-Set these values in `.env` to customize the council:
+### Stage 2: Peer Review and Voting
 
-```python
-COUNCIL_MODELS=llama3.2:3b,llama3.1:8b
-CHAIRMAN_MODEL=llama3.2:3b
-TITLE_MODEL=llama3.2:3b
-```
+1. Stage 1 responses are anonymized as `Response A`, `Response B`, etc.
+2. Each model receives all anonymized responses and evaluates strengths and weaknesses of each response.
+3. Each model then provides a strict final ranking from best to worst.
+4. Rankings are parsed from each model output.
+5. Aggregate ranking is computed by averaging rank position across reviewers.
 
-## Running the Application
+Output:
 
-**Option 1: Use the start script**
-```bash
-./start.sh
-```
+- per-model ranking writeups (`stage2`)
+- parsed rankings
+- aggregate ranking table (average rank, lower is better)
 
-**Option 2: Run manually**
+This is the “voting” step: every model acts as a reviewer/judge of the full response set.
 
-Terminal 1 (Backend):
-```bash
-uv run python -m backend.main
-```
+### Stage 3: Final Decision and Synthesis
 
-Terminal 2 (Frontend):
-```bash
-cd frontend
-npm run dev
-```
+1. The chairman model receives the original user question, all Stage 1 responses, and all Stage 2 ranking analyses.
+2. It generates a final synthesized answer that aims to combine the strongest points and resolve disagreements.
+3. The UI streams this final answer token-by-token over SSE (`/message/stream`).
 
-Then open http://localhost:5173 in your browser.
+Decision rule in practice:
 
-## Switching Between Local And Cloud
-
-You can switch between local and cloud Ollama by updating your `.env` file:
-
-**To use Local Ollama:**
-```bash
-echo "OLLAMA_MODE=local" > .env
-echo "OLLAMA_API_URL=http://localhost:11434" >> .env
-# Make sure Ollama is running: ollama serve
-```
-
-**To use Ollama Cloud:**
-```bash
-echo "OLLAMA_MODE=cloud" > .env
-echo "OLLAMA_CLOUD_API_URL=https://ollama.com/api/chat" >> .env
-echo "OLLAMA_CLOUD_API_KEY=your_api_key_here" >> .env
-```
-
-Restart the application after changing providers.
+- The final answer shown to the user is the **chairman synthesis**, not a raw top-ranked Stage 1 response.
+- Stage 2 voting influences the chairman prompt context.
+- If chairman synthesis fails, the backend falls back to the first available Stage 1 response.
 
 ## Tech Stack
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, Ollama (local/cloud) APIs
-- **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
-# llm-council-v2
+- Backend: FastAPI, httpx, uvicorn, python-dotenv
+- Frontend: React 19 + Vite + react-markdown
+- Runtime: Ollama local or Ollama Cloud
+- Storage: JSON files in `data/conversations/`
+
+## Requirements
+
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/)
+- Node.js 18+ and npm
+- Ollama (local mode) or Ollama Cloud API key (cloud mode)
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+make install
+```
+
+Equivalent manual install:
+
+```bash
+uv sync
+cd frontend && npm install
+```
+
+### 2. Configure environment
+
+Create a `.env` file in the repo root.
+
+Local mode example:
+
+```env
+OLLAMA_MODE=local
+OLLAMA_API_URL=http://localhost:11434
+COUNCIL_MODELS=model-a,model-b,model-c
+CHAIRMAN_MODEL=model-b
+TITLE_MODEL=model-a
+```
+
+Cloud mode example:
+
+```env
+OLLAMA_MODE=cloud
+OLLAMA_CLOUD_API_URL=https://ollama.com/api/chat
+OLLAMA_CLOUD_API_KEY=your_api_key_here
+COUNCIL_MODELS=your-cloud-model-1,your-cloud-model-2
+CHAIRMAN_MODEL=your-cloud-model-1
+TITLE_MODEL=your-cloud-model-1
+```
+
+### 3. If using local Ollama, start service and pull models
+
+```bash
+ollama serve
+# Pull the models you configured in COUNCIL_MODELS
+ollama pull model-a
+ollama pull model-b
+ollama pull model-c
+```
+
+Switching modes later is just updating `.env` and restarting the backend.
+
+### 4. Run the app
+
+```bash
+make dev
+```
+
+- Backend: `http://localhost:8001`
+- Frontend: `http://localhost:5173`
+
+## Development Commands
+
+- `make dev`: run backend + frontend together
+- `make backend`: run backend only (`uvicorn` on port 8001)
+- `make frontend`: run frontend only (Vite on port 5173)
+- `make install`: install backend + frontend dependencies
+- `make clean`: remove local build caches
+
+## Environment Variables
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `OLLAMA_MODE` | `local` or `cloud` | `local` |
+| `OLLAMA_API_URL` | Local Ollama base URL (normalizes `/api/chat` or `/api/generate`) | `http://localhost:11434` |
+| `OLLAMA_CLOUD_API_URL` | Ollama Cloud chat endpoint | `https://ollama.com/api/chat` |
+| `OLLAMA_CLOUD_API_KEY` | API key used when `OLLAMA_MODE=cloud` | empty |
+| `COUNCIL_MODELS` | Comma-separated model list used in Stage 1 and Stage 2 | set by user |
+| `CHAIRMAN_MODEL` | Preferred Stage 3 synthesis model | first model in `COUNCIL_MODELS` |
+| `TITLE_MODEL` | Model used for first-message conversation title generation | `CHAIRMAN_MODEL` |
+| `DATA_DIR` | Conversation storage directory | `data/conversations` |
+
+## API Endpoints
+
+- `GET /`: health check
+- `GET /api/runtime-config`: active runtime config exposed to UI
+- `GET /api/conversations`: list conversation metadata
+- `POST /api/conversations`: create conversation
+- `GET /api/conversations/{id}`: fetch one conversation
+- `POST /api/conversations/{id}/message`: run full 3-stage pipeline
+- `POST /api/conversations/{id}/message/stream`: stream stage events (SSE)
+
+## Notes
+
+- In cloud mode, `COUNCIL_MODELS` must be valid cloud-available model IDs for your account.
+- Stage 3 streaming is implemented with Server-Sent Events (SSE).
+- Conversation files are plain JSON and can be inspected directly under `data/conversations/`.
