@@ -8,7 +8,9 @@ LLM Council is a local-first web app that runs the same prompt through multiple 
 
 ## Inspiration
 
-This project builds on a similar project direction from [Andrej Karpathy](https://github.com/karpathy), extending the idea of using multiple LLMs as a collaborative thinking partner.
+This project extends the multi-model collaboration direction explored by @karpathy.
+
+The council-style workflow, peer critique, and chairman synthesis pattern were inspired by that line of thinking, with a modified implementation and hybrid local/cloud runtime built independently in this repository.
 
 ## What It Does
 
