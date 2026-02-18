@@ -18,7 +18,7 @@ help:
 dev:
 	@echo "Starting LLM Council..."
 	@trap 'kill 0' SIGINT SIGTERM; \
-	uv run python -m backend.main & \
+	uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 --reload & \
 	sleep 2 && cd frontend && npm run dev & \
 	echo "" && \
 	echo "✓ LLM Council is running!" && \
@@ -30,7 +30,7 @@ dev:
 
 # Start backend only
 backend:
-	uv run python -m backend.main
+	uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 --reload
 
 # Start frontend only
 frontend:
