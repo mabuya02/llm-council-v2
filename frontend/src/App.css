@@ -94,7 +94,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    bottom: 64px;
+    bottom: 84px; /* space for floating nav */
     z-index: 100;
     background: var(--bg-0);
     animation: mobileSlideUp 0.28s cubic-bezier(0.4, 0, 0.2, 1);
@@ -185,18 +185,26 @@
     display: none !important;
   }
 
-  /* ---- Mobile Bottom Navigation ---- */
+  /* ---- Floating Mobile Bottom Navigation ---- */
   .mobile-nav {
     display: flex;
     align-items: stretch;
     justify-content: space-around;
-    height: 64px;
-    min-height: 64px;
-    background: rgba(5, 8, 14, 0.96);
-    backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
+    position: fixed;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    height: 60px;
+    background: rgba(8, 12, 22, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(139, 165, 255, 0.18);
+    border-radius: 20px;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     z-index: 200;
-    padding: 0 8px;
+    padding: 0 6px;
     flex-shrink: 0;
   }
 
@@ -206,7 +214,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 3px;
     background: none;
     border: none;
     color: var(--text-dim);
@@ -215,10 +223,11 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease, transform 0.15s ease;
     position: relative;
     padding: 8px 4px;
     -webkit-tap-highlight-color: transparent;
+    border-radius: 14px;
   }
 
   .mobile-nav-btn.active {
@@ -228,17 +237,17 @@
   .mobile-nav-btn.active::after {
     content: "";
     position: absolute;
-    top: 0;
+    top: 4px;
     left: 50%;
     transform: translateX(-50%);
-    width: 32px;
+    width: 24px;
     height: 2px;
     background: var(--accent);
-    border-radius: 0 0 2px 2px;
+    border-radius: 2px;
   }
 
   .mobile-nav-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
   }
 
   .mobile-nav-btn svg {
@@ -249,7 +258,7 @@
 
   .mobile-nav-badge {
     position: absolute;
-    top: 8px;
+    top: 6px;
     right: calc(50% - 16px);
     width: 7px;
     height: 7px;
@@ -269,31 +278,44 @@
     }
   }
 
-  /* Adjust chat interface for mobile bottom nav */
+  /* Adjust chat interface for mobile */
   .main-chat-area .chat-interface {
     border-radius: 0;
     border: none;
   }
 
+  /* Add bottom padding so content doesn't hide behind floating nav */
   .main-chat-area .input-form {
-    padding-bottom: 12px;
+    padding-bottom: calc(12px + 72px);
   }
 }
 
 /* ---- Small phone adjustments ---- */
 @media (max-width: 420px) {
   .mobile-nav {
-    height: 58px;
-    min-height: 58px;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    height: 56px;
+    border-radius: 18px;
   }
 
   .mobile-nav-btn {
     font-size: 9px;
-    gap: 3px;
+    gap: 2px;
   }
 
   .mobile-nav-btn svg {
     width: 18px;
     height: 18px;
   }
+
+  .mobile-panel-overlay {
+    bottom: 76px;
+  }
+
+  .main-chat-area .input-form {
+    padding-bottom: calc(8px + 68px);
+  }
 }
+

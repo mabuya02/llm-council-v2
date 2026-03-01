@@ -90,6 +90,7 @@ export default function ChatInterface({
       <div className="chat-interface chat-interface-hero">
         <div className="messages-container">
           <div className="grok-hero no-conversation-hero">
+            {/* Animated council figurines */}
             <div className="council-figurines">
               <div className="figurine" style={{ animationDelay: '0s' }}>
                 <div className="figurine-head">
@@ -102,9 +103,57 @@ export default function ChatInterface({
                 </div>
                 <div className="figurine-platform"></div>
               </div>
+
+              <div className="figurine figurine-chairman" style={{ animationDelay: '0.15s' }}>
+                <span className="crown">♛</span>
+                <div className="figurine-head">
+                  <div className="face-eyes"><span></span><span></span></div>
+                </div>
+                <div className="figurine-neck"></div>
+                <div className="figurine-torso">
+                  <div className="arm arm-left"></div>
+                  <div className="arm arm-right"></div>
+                </div>
+                <div className="figurine-platform"></div>
+              </div>
+
+              <div className="figurine" style={{ animationDelay: '0.3s' }}>
+                <div className="figurine-head">
+                  <div className="face-eyes"><span></span><span></span></div>
+                </div>
+                <div className="figurine-neck"></div>
+                <div className="figurine-torso">
+                  <div className="arm arm-left"></div>
+                  <div className="arm arm-right"></div>
+                </div>
+                <div className="figurine-platform"></div>
+              </div>
             </div>
+
             <h2>LLM Council</h2>
-            <p>Create a conversation to start.</p>
+            <p className="hero-tagline">
+              Multiple AI models deliberate, rank, and synthesize — so you get the best answer, not just one perspective.
+            </p>
+
+            {/* Feature cards */}
+            <div className="hero-features">
+              <div className="hero-feature-card" style={{ animationDelay: '0.2s' }}>
+                <span className="hero-feature-icon">💬</span>
+                <strong>Individual Responses</strong>
+                <span className="hero-feature-desc">Every model answers independently</span>
+              </div>
+              <div className="hero-feature-card" style={{ animationDelay: '0.35s' }}>
+                <span className="hero-feature-icon">⚖️</span>
+                <strong>Peer Rankings</strong>
+                <span className="hero-feature-desc">Models evaluate each other's answers</span>
+              </div>
+              <div className="hero-feature-card" style={{ animationDelay: '0.5s' }}>
+                <span className="hero-feature-icon">✨</span>
+                <strong>Final Synthesis</strong>
+                <span className="hero-feature-desc">The chairman crafts the best answer</span>
+              </div>
+            </div>
+
             <button className="empty-state-cta" onClick={onNewConversation}>
               New Conversation
             </button>

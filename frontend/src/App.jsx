@@ -13,7 +13,7 @@ function App() {
   const [runtimeConfig, setRuntimeConfig] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [stagePanelOpen, setStagePanelOpen] = useState(true);
+  const [stagePanelOpen, setStagePanelOpen] = useState(false);
   // Index of the assistant message whose stages to show (null = latest)
   const [inspectedMessageIndex, setInspectedMessageIndex] = useState(null);
   // Mobile view: 'chat' | 'sidebar' | 'stages'
@@ -427,31 +427,109 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        runtimeConfig={runtimeConfig}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(prev => !prev)}
-      />
-      <ChatInterface
-        conversation={currentConversation}
-        onSendMessage={handleSendMessage}
-        onNewConversation={handleNewConversation}
-        onInspectMessage={handleInspectMessage}
-        inspectedMessageIndex={inspectedMessageIndex}
-        isLoading={isLoading}
-        runtimeConfig={runtimeConfig}
-      />
-      <StagePanel
-        conversation={currentConversation}
-        inspectedMessageIndex={inspectedMessageIndex}
-        isOpen={stagePanelOpen}
-        onToggle={() => setStagePanelOpen(prev => !prev)}
-      />
+      {/* ---- Desktop sidebar (hidden on mobile via CSS) ---- */}
+      <div className="desktop-sidebar">
+        <Sidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onDeleteConversation={handleDeleteConversation}
+          runtimeConfig={runtimeConfig}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(prev => !prev)}
+        />
+      </div>
+
+      {/* ---- Main chat area ---- */}
+      <div className={`main-chat-area ${mobileView !== 'chat' ? 'mobile-hidden' : ''}`}>
+        <ChatInterface
+          conversation={currentConversation}
+          onSendMessage={handleSendMessage}
+          onNewConversation={handleNewConversation}
+          onInspectMessage={(idx) => {
+            handleInspectMessage(idx);
+            setMobileView('stages');
+          }}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isLoading={isLoading}
+          runtimeConfig={runtimeConfig}
+        />
+      </div>
+
+      {/* ---- Desktop stage panel (hidden on mobile via CSS) ---- */}
+      <div className="desktop-stage-panel">
+        <StagePanel
+          conversation={currentConversation}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isOpen={stagePanelOpen}
+          onToggle={() => setStagePanelOpen(prev => !prev)}
+        />
+      </div>
+
+      {/* ---- Mobile overlay: Sidebar ---- */}
+      <div className={`mobile-panel-overlay ${mobileView === 'sidebar' ? 'visible' : ''}`}>
+        <Sidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={(id) => {
+            handleSelectConversation(id);
+            setMobileView('chat');
+          }}
+          onNewConversation={() => {
+            handleNewConversation();
+            setMobileView('chat');
+          }}
+          onDeleteConversation={handleDeleteConversation}
+          runtimeConfig={runtimeConfig}
+          isOpen={true}
+          onToggle={() => setMobileView('chat')}
+        />
+      </div>
+
+      {/* ---- Mobile overlay: Stages ---- */}
+      <div className={`mobile-panel-overlay ${mobileView === 'stages' ? 'visible' : ''}`}>
+        <StagePanel
+          conversation={currentConversation}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isOpen={true}
+          onToggle={() => setMobileView('chat')}
+        />
+      </div>
+
+      {/* ---- Mobile floating bottom navigation ---- */}
+      <nav className="mobile-nav">
+        <button
+          className={`mobile-nav-btn ${mobileView === 'sidebar' ? 'active' : ''}`}
+          onClick={() => setMobileView(mobileView === 'sidebar' ? 'chat' : 'sidebar')}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="15" y2="12" />
+            <line x1="3" y1="18" x2="18" y2="18" />
+          </svg>
+          Chats
+        </button>
+        <button
+          className={`mobile-nav-btn ${mobileView === 'chat' ? 'active' : ''}`}
+          onClick={() => setMobileView('chat')}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Council
+        </button>
+        <button
+          className={`mobile-nav-btn ${mobileView === 'stages' ? 'active' : ''}`}
+          onClick={() => setMobileView(mobileView === 'stages' ? 'chat' : 'stages')}
+        >
+          {hasStages && <span className="mobile-nav-badge" />}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          Stages
+        </button>
+      </nav>
     </div>
   );
 }
