@@ -1,8 +1,14 @@
 """3-stage LLM Council orchestration."""
 
-from typing import List, Dict, Any, Tuple
-from .llm_client import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, TITLE_MODEL
+import logging
+import re
+from collections import defaultdict
+from typing import Any, Dict, List, Tuple
+
+from .config import CHAIRMAN_MODEL, COUNCIL_MODELS, TITLE_MODEL
+from .llm_client import query_model, query_models_parallel
+
+logger = logging.getLogger(__name__)
 
 
 def _build_chairman_prompt(
@@ -61,22 +67,32 @@ def stage3_prepare(
     return synthesis_model, messages
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+async def stage1_collect_responses(
+    user_query: str,
+    conversation_history: List[Dict[str, Any]] | None = None,
+) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
 
     Args:
         user_query: The user's question
+        conversation_history: Optional list of prior messages for multi-turn context
 
     Returns:
         List of dicts with 'model' and 'response' keys
     """
-    messages = [{"role": "user", "content": user_query}]
+    messages: List[Dict[str, str]] = []
+    if conversation_history:
+        for msg in conversation_history:
+            if msg.get("role") == "user":
+                messages.append({"role": "user", "content": msg["content"]})
+            elif msg.get("role") == "assistant" and msg.get("stage3"):
+                messages.append({"role": "assistant", "content": msg["stage3"].get("response", "")})
+    messages.append({"role": "user", "content": user_query})
 
     # Query all models in parallel
     responses = await query_models_parallel(COUNCIL_MODELS, messages)
 
-    # Format results
     stage1_results = []
     for model, response in responses.items():
         if response is not None:  # Only include successful responses
@@ -85,6 +101,7 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
                 "response": response.get('content', '')
             })
 
+    logger.info("Stage 1 complete: %d/%d models responded", len(stage1_results), len(COUNCIL_MODELS))
     return stage1_results
 
 
@@ -164,7 +181,6 @@ Now provide your evaluation and ranking:"""
                 "ranking": full_text,
                 "parsed_ranking": parsed
             })
-
     return stage2_results, label_to_model
 
 
@@ -217,22 +233,14 @@ def parse_ranking_from_text(ranking_text: str) -> List[str]:
     Returns:
         List of response labels in ranked order
     """
-    import re
-
     # Look for "FINAL RANKING:" section
     if "FINAL RANKING:" in ranking_text:
-        # Extract everything after "FINAL RANKING:"
         parts = ranking_text.split("FINAL RANKING:")
         if len(parts) >= 2:
             ranking_section = parts[1]
-            # Try to extract numbered list format (e.g., "1. Response A")
-            # This pattern looks for: number, period, optional space, "Response X"
             numbered_matches = re.findall(r'\d+\.\s*Response [A-Z]', ranking_section)
             if numbered_matches:
-                # Extract just the "Response X" part
                 return [re.search(r'Response [A-Z]', m).group() for m in numbered_matches]
-
-            # Fallback: Extract all "Response X" patterns in order
             matches = re.findall(r'Response [A-Z]', ranking_section)
             return matches
 
@@ -255,32 +263,41 @@ def calculate_aggregate_rankings(
     Returns:
         List of dicts with model name and average rank, sorted best to worst
     """
-    from collections import defaultdict
+    # Build reverse map: model -> label (for self-ranking detection)
+    model_to_label = {v: k for k, v in label_to_model.items()}
 
     # Track positions for each model
     model_positions = defaultdict(list)
+    self_rank_positions = defaultdict(list)
 
     for ranking in stage2_results:
         ranking_text = ranking['ranking']
+        ranker_model = ranking['model']
 
-        # Parse the ranking from the structured format
         parsed_ranking = parse_ranking_from_text(ranking_text)
 
         for position, label in enumerate(parsed_ranking, start=1):
             if label in label_to_model:
                 model_name = label_to_model[label]
                 model_positions[model_name].append(position)
+                # Track if this model ranked itself
+                if model_name == ranker_model:
+                    self_rank_positions[model_name].append(position)
 
-    # Calculate average position for each model
     aggregate = []
     for model, positions in model_positions.items():
         if positions:
             avg_rank = sum(positions) / len(positions)
-            aggregate.append({
+            entry: Dict[str, Any] = {
                 "model": model,
                 "average_rank": round(avg_rank, 2),
-                "rankings_count": len(positions)
-            })
+                "rankings_count": len(positions),
+            }
+            # Flag self-ranking bias if the model ranked itself first
+            if model in self_rank_positions:
+                self_pos = self_rank_positions[model]
+                entry["self_rank"] = self_pos[0] if len(self_pos) == 1 else self_pos
+            aggregate.append(entry)
 
     # Sort by average rank (lower is better)
     aggregate.sort(key=lambda x: x['average_rank'])
@@ -290,8 +307,6 @@ def calculate_aggregate_rankings(
 
 def _fallback_title_from_query(user_query: str) -> str:
     """Generate a deterministic fallback title when title generation fails."""
-    import re
-
     cleaned = re.sub(r"\s+", " ", user_query).strip()
     cleaned = re.sub(r"[^\w\s]", "", cleaned)
     words = cleaned.split()
@@ -339,18 +354,22 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(
+    user_query: str,
+    conversation_history: List[Dict[str, Any]] | None = None,
+) -> Tuple[List, List, Dict, Dict]:
     """
     Run the complete 3-stage council process.
 
     Args:
         user_query: The user's question
+        conversation_history: Optional list of prior messages for multi-turn context
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
     # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query)
+    stage1_results = await stage1_collect_responses(user_query, conversation_history)
 
     # If no models responded successfully, return error
     if not stage1_results:

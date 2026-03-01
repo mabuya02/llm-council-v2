@@ -7,6 +7,8 @@ export default function ChatInterface({
   conversation,
   onSendMessage,
   onNewConversation,
+  onInspectMessage,
+  inspectedMessageIndex,
   isLoading,
   runtimeConfig,
 }) {
@@ -203,7 +205,12 @@ export default function ChatInterface({
                   </div>
                 </div>
               ) : (
-                <div className="assistant-message">
+              <div
+                className={`assistant-message ${inspectedMessageIndex === index ? 'inspected' : ''}`}
+                onClick={() => onInspectMessage?.(index)}
+                title="Click to inspect stages for this response"
+                style={{ cursor: 'pointer' }}
+              >
                   <div className="message-label">LLM Council</div>
 
                   {(msg.loading?.stage1 || msg.loading?.stage2) && (

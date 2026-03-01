@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import './Sidebar.css';
 
 export default function Sidebar({
@@ -5,10 +6,12 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
   runtimeConfig,
   isOpen,
   onToggle,
 }) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const modeLabel = runtimeConfig?.ollama_mode || 'local';
   const endpointLabel = runtimeConfig?.endpoint || 'Waiting for backend...';
 
@@ -22,6 +25,18 @@ export default function Sidebar({
       hour: 'numeric',
       minute: '2-digit',
     }).format(date);
+  };
+
+  const handleDeleteClick = (e, convId) => {
+    e.stopPropagation();
+    if (confirmDeleteId === convId) {
+      onDeleteConversation(convId);
+      setConfirmDeleteId(null);
+    } else {
+      setConfirmDeleteId(convId);
+      // Auto-clear confirmation after 3 seconds
+      setTimeout(() => setConfirmDeleteId((prev) => (prev === convId ? null : prev)), 3000);
+    }
   };
 
   return (
@@ -61,6 +76,15 @@ export default function Sidebar({
               <div className="conversation-meta">
                 {conv.message_count} messages · {formatCreatedAt(conv.created_at)}
               </div>
+              {isOpen && (
+                <button
+                  className={`conversation-delete-btn ${confirmDeleteId === conv.id ? 'confirm' : ''}`}
+                  onClick={(e) => handleDeleteClick(e, conv.id)}
+                  title={confirmDeleteId === conv.id ? 'Click again to confirm' : 'Delete conversation'}
+                >
+                  {confirmDeleteId === conv.id ? '✓' : '×'}
+                </button>
+              )}
             </div>
           ))
         )}

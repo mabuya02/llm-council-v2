@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import StagePanel from './components/StagePanel';
+import { useToast } from './components/Toast';
 import { api } from './api';
 import './App.css';
 
@@ -13,6 +14,10 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stagePanelOpen, setStagePanelOpen] = useState(true);
+  // Index of the assistant message whose stages to show (null = latest)
+  const [inspectedMessageIndex, setInspectedMessageIndex] = useState(null);
+
+  const { addToast } = useToast();
 
   const loadConversations = useCallback(async () => {
     try {
@@ -20,27 +25,27 @@ function App() {
       setConversations(convs);
       setCurrentConversationId((prevId) => prevId || convs[0]?.id || null);
     } catch (error) {
-      console.error('Failed to load conversations:', error);
+      addToast('Failed to load conversations. Is the backend running?', 'error');
     }
-  }, []);
+  }, [addToast]);
 
   const loadConversation = useCallback(async (id) => {
     try {
       const conv = await api.getConversation(id);
       setCurrentConversation(conv);
     } catch (error) {
-      console.error('Failed to load conversation:', error);
+      addToast('Failed to load conversation.', 'error');
     }
-  }, []);
+  }, [addToast]);
 
   const loadRuntimeConfig = useCallback(async () => {
     try {
       const config = await api.getRuntimeConfig();
       setRuntimeConfig(config);
     } catch (error) {
-      console.error('Failed to load runtime config:', error);
+      addToast('Cannot reach backend. Check that the server is running.', 'warning');
     }
-  }, []);
+  }, [addToast]);
 
   // Load conversations on mount
   useEffect(() => {
@@ -56,11 +61,33 @@ function App() {
     if (currentConversationId) {
       const timer = setTimeout(() => {
         void loadConversation(currentConversationId);
+        setInspectedMessageIndex(null);
       }, 0);
       return () => clearTimeout(timer);
     }
     return undefined;
   }, [currentConversationId, loadConversation]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (isMod && e.key === 'n') {
+        e.preventDefault();
+        handleNewConversation();
+      }
+      if (isMod && e.key === 'b') {
+        e.preventDefault();
+        setSidebarOpen((prev) => !prev);
+      }
+      if (isMod && e.key === '.') {
+        e.preventDefault();
+        setStagePanelOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleNewConversation = async () => {
     try {
@@ -76,8 +103,24 @@ function App() {
       ]);
       setCurrentConversationId(newConv.id);
       setCurrentConversation(newConv);
+      setInspectedMessageIndex(null);
     } catch (error) {
-      console.error('Failed to create conversation:', error);
+      addToast('Failed to create conversation.', 'error');
+    }
+  };
+
+  const handleDeleteConversation = async (id) => {
+    try {
+      await api.deleteConversation(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+        setCurrentConversation(null);
+        setInspectedMessageIndex(null);
+      }
+      addToast('Conversation deleted.', 'success', 3000);
+    } catch (error) {
+      addToast('Failed to delete conversation.', 'error');
     }
   };
 
@@ -85,11 +128,17 @@ function App() {
     setCurrentConversationId(id);
   };
 
+  const handleInspectMessage = (msgIndex) => {
+    setInspectedMessageIndex((prev) => (prev === msgIndex ? null : msgIndex));
+    if (!stagePanelOpen) setStagePanelOpen(true);
+  };
+
   const handleSendMessage = async (content) => {
     if (!currentConversationId) return;
 
     const targetConversationId = currentConversationId;
     setIsLoading(true);
+    setInspectedMessageIndex(null);
     try {
       // Create a partial assistant message that will be updated progressively.
       const assistantMessage = {
@@ -192,19 +241,17 @@ function App() {
             break;
 
           case 'title_complete':
-            // Reload conversations to get updated title
             loadConversations();
             break;
 
           case 'complete':
-            // Stream complete, reload conversations list
             loadConversations();
             loadConversation(targetConversationId);
             setIsLoading(false);
             break;
 
           case 'error':
-            console.error('Stream error:', event.message);
+            addToast(`Council error: ${event.message}`, 'error');
             setIsLoading(false);
             break;
 
@@ -213,7 +260,7 @@ function App() {
         }
       });
     } catch (error) {
-      console.error('Failed to send message:', error);
+      addToast(`Failed to send message: ${error.message}`, 'error');
       // Remove optimistic messages on error
       setCurrentConversation((prev) => {
         if (!prev) return prev;
@@ -233,6 +280,7 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
         runtimeConfig={runtimeConfig}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(prev => !prev)}
@@ -241,11 +289,14 @@ function App() {
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         onNewConversation={handleNewConversation}
+        onInspectMessage={handleInspectMessage}
+        inspectedMessageIndex={inspectedMessageIndex}
         isLoading={isLoading}
         runtimeConfig={runtimeConfig}
       />
       <StagePanel
         conversation={currentConversation}
+        inspectedMessageIndex={inspectedMessageIndex}
         isOpen={stagePanelOpen}
         onToggle={() => setStagePanelOpen(prev => !prev)}
       />

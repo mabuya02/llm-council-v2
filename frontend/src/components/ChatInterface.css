@@ -449,6 +449,16 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 10px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.assistant-message:hover {
+  border-color: rgba(99, 213, 255, 0.3);
+}
+
+.assistant-message.inspected {
+  border-color: rgba(99, 213, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(99, 213, 255, 0.15);
 }
 
 .loading-indicator {

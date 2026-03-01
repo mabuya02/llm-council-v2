@@ -2,7 +2,10 @@
  * API client for the LLM Council backend.
  */
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8001';
+
+const MAX_SSE_RETRIES = 2;
+const SSE_RETRY_DELAY = 1500;
 
 export const api = {
   /**
@@ -47,6 +50,20 @@ export const api = {
   },
 
   /**
+   * Delete a conversation.
+   */
+  async deleteConversation(conversationId) {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}`,
+      { method: 'DELETE' }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+    return response.json();
+  },
+
+  /**
    * Get runtime backend configuration.
    */
   async getRuntimeConfig() {
@@ -78,67 +95,93 @@ export const api = {
   },
 
   /**
-   * Send a message and receive streaming updates.
+   * Send a message and receive streaming updates with reconnection support.
    * @param {string} conversationId - The conversation ID
    * @param {string} content - The message content
    * @param {function} onEvent - Callback function for each event: (eventType, data) => void
    * @returns {Promise<void>}
    */
   async sendMessageStream(conversationId, content, onEvent) {
-    const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/message/stream`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      }
-    );
+    let lastAttemptError = null;
 
-    if (!response.ok) {
-      throw new Error('Failed to send message');
-    }
+    for (let attempt = 0; attempt <= MAX_SSE_RETRIES; attempt++) {
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/conversations/${conversationId}/message/stream`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ content }),
+          }
+        );
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to send message`);
+        }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        const trailingDataLine = buffer
-          .split('\n')
-          .find((line) => line.startsWith('data: '));
-        if (trailingDataLine) {
-          try {
-            const event = JSON.parse(trailingDataLine.slice(6));
-            onEvent(event.type, event);
-          } catch (e) {
-            console.error('Failed to parse trailing SSE event:', e);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let completed = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            const trailingDataLine = buffer
+              .split('\n')
+              .find((line) => line.startsWith('data: '));
+            if (trailingDataLine) {
+              try {
+                const event = JSON.parse(trailingDataLine.slice(6));
+                if (event.type === 'complete') completed = true;
+                onEvent(event.type, event);
+              } catch (e) {
+                console.error('Failed to parse trailing SSE event:', e);
+              }
+            }
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop() || '';
+
+          for (const rawEvent of events) {
+            const dataLine = rawEvent
+              .split('\n')
+              .find((line) => line.startsWith('data: '));
+            if (!dataLine) continue;
+
+            const data = dataLine.slice(6);
+            try {
+              const event = JSON.parse(data);
+              if (event.type === 'complete') completed = true;
+              onEvent(event.type, event);
+            } catch (e) {
+              console.error('Failed to parse SSE event:', e);
+            }
           }
         }
-        break;
-      }
 
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
+        // If stream completed normally, we're done
+        if (completed) return;
 
-      for (const rawEvent of events) {
-        const dataLine = rawEvent
-          .split('\n')
-          .find((line) => line.startsWith('data: '));
-        if (!dataLine) continue;
+        // Stream ended without 'complete' event – may have dropped
+        throw new Error('Stream ended unexpectedly without completion');
 
-        const data = dataLine.slice(6);
-        try {
-          const event = JSON.parse(data);
-          onEvent(event.type, event);
-        } catch (e) {
-          console.error('Failed to parse SSE event:', e);
+      } catch (err) {
+        lastAttemptError = err;
+        console.warn(`SSE attempt ${attempt + 1} failed:`, err.message);
+
+        if (attempt < MAX_SSE_RETRIES) {
+          await new Promise((r) => setTimeout(r, SSE_RETRY_DELAY * (attempt + 1)));
         }
       }
     }
+
+    // All retries exhausted
+    throw lastAttemptError || new Error('Failed to stream message');
   },
 };

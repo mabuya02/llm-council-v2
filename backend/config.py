@@ -1,9 +1,13 @@
 """Configuration for the LLM Council."""
 
+import logging
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_LOCAL_BASE_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_CLOUD_API_URL = "https://ollama.com/api/chat"
@@ -14,7 +18,7 @@ def _normalize_ollama_mode(raw_mode: str) -> str:
     """Validate ollama mode with a safe local default."""
     mode = (raw_mode or "local").strip().lower()
     if mode not in VALID_OLLAMA_MODES:
-        print(f"Warning: Unknown OLLAMA_MODE={raw_mode!r}. Falling back to 'local'.")
+        logger.warning("Unknown OLLAMA_MODE=%r. Falling back to 'local'.", raw_mode)
         return "local"
     return mode
 
@@ -50,3 +54,13 @@ TITLE_MODEL = os.getenv("TITLE_MODEL", CHAIRMAN_MODEL)
 
 # Data directory for conversation storage
 DATA_DIR = os.getenv("DATA_DIR", "data/conversations")
+
+# CORS allowed origins (comma-separated)
+_cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
+
+# LLM provider (kept for future expansion; only "ollama" supported today)
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+
+# Retry configuration for model queries
+MODEL_QUERY_MAX_RETRIES = int(os.getenv("MODEL_QUERY_MAX_RETRIES", "1"))

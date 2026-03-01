@@ -3,7 +3,7 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import './StagePanel.css';
 
-export default function StagePanel({ conversation, isOpen, onToggle }) {
+export default function StagePanel({ conversation, inspectedMessageIndex, isOpen, onToggle }) {
   const [activeStage, setActiveStage] = useState(null);
 
   if (!isOpen) {
@@ -18,11 +18,22 @@ export default function StagePanel({ conversation, isOpen, onToggle }) {
 
   const hasConversation = conversation && conversation.messages.length > 0;
   const assistantMessages = hasConversation
-    ? conversation.messages.filter(m => m.role === 'assistant')
+    ? conversation.messages
+        .map((m, i) => ({ ...m, _index: i }))
+        .filter(m => m.role === 'assistant')
     : [];
-  const latestAssistant = assistantMessages[assistantMessages.length - 1];
 
-  if (!hasConversation || !latestAssistant) {
+  // Pick the inspected message or fall back to the latest assistant message
+  let targetAssistant = null;
+  if (inspectedMessageIndex != null && hasConversation) {
+    const msg = conversation.messages[inspectedMessageIndex];
+    if (msg?.role === 'assistant') targetAssistant = msg;
+  }
+  if (!targetAssistant && assistantMessages.length > 0) {
+    targetAssistant = assistantMessages[assistantMessages.length - 1];
+  }
+
+  if (!hasConversation || !targetAssistant) {
     return (
       <div className="stage-panel">
         <button className="panel-toggle" onClick={onToggle} aria-label="Collapse stage panel">
@@ -41,23 +52,23 @@ export default function StagePanel({ conversation, isOpen, onToggle }) {
       id: 'stage1',
       label: 'Individual Responses',
       shortLabel: 'Stage 1',
-      loading: latestAssistant.loading?.stage1,
-      done: !!latestAssistant.stage1,
-      content: latestAssistant.stage1 ? (
-        <Stage1 responses={latestAssistant.stage1} />
+      loading: targetAssistant.loading?.stage1,
+      done: !!targetAssistant.stage1,
+      content: targetAssistant.stage1 ? (
+        <Stage1 responses={targetAssistant.stage1} />
       ) : null,
     },
     {
       id: 'stage2',
       label: 'Peer Rankings',
       shortLabel: 'Stage 2',
-      loading: latestAssistant.loading?.stage2,
-      done: !!latestAssistant.stage2,
-      content: latestAssistant.stage2 ? (
+      loading: targetAssistant.loading?.stage2,
+      done: !!targetAssistant.stage2,
+      content: targetAssistant.stage2 ? (
         <Stage2
-          rankings={latestAssistant.stage2}
-          labelToModel={latestAssistant.metadata?.label_to_model}
-          aggregateRankings={latestAssistant.metadata?.aggregate_rankings}
+          rankings={targetAssistant.stage2}
+          labelToModel={targetAssistant.metadata?.label_to_model}
+          aggregateRankings={targetAssistant.metadata?.aggregate_rankings}
         />
       ) : null,
     },
@@ -65,8 +76,8 @@ export default function StagePanel({ conversation, isOpen, onToggle }) {
       id: 'stage3',
       label: 'Final Synthesis',
       shortLabel: 'Stage 3',
-      loading: latestAssistant.loading?.stage3,
-      done: !!latestAssistant.stage3,
+      loading: targetAssistant.loading?.stage3,
+      done: !!targetAssistant.stage3,
       content: null, // Stage 3 shown in main chat
     },
   ];

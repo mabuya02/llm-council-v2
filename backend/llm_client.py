@@ -1,15 +1,22 @@
 """Ollama API client supporting both local and cloud deployments."""
 
+import asyncio
 import json
+import logging
+
 import httpx
 from typing import List, Dict, Any, Optional, AsyncGenerator
+
 from .config import (
     OLLAMA_MODE,
     OLLAMA_LOCAL_CHAT_URL,
     OLLAMA_LOCAL_GENERATE_URL,
     OLLAMA_CLOUD_API_URL,
     OLLAMA_CLOUD_API_KEY,
+    MODEL_QUERY_MAX_RETRIES,
 )
+
+logger = logging.getLogger(__name__)
 
 CLOUD_NATIVE_CHAT_URL = "https://ollama.com/api/chat"
 CLOUD_OPENAI_CHAT_COMPLETIONS_URL = "https://api.ollama.ai/v1/chat/completions"
@@ -53,22 +60,42 @@ def _is_model_not_found(status_code: int, detail: str) -> bool:
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    timeout: float = 120.0
+    timeout: float = 120.0,
+    _retries: int = MODEL_QUERY_MAX_RETRIES,
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model via Ollama API.
+    Query a single model via Ollama API with retry.
 
     Args:
         model: Ollama model name (e.g., "llama3.2", "mistral")
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
+        _retries: Number of retries on transient failure
 
     Returns:
         Response dict with 'content' and optional metadata, or None if failed
     """
-    if OLLAMA_MODE == "cloud":
-        return await _query_ollama_cloud(model, messages, timeout)
-    return await _query_ollama_local(model, messages, timeout)
+    last_err: Optional[Exception] = None
+    for attempt in range(_retries + 1):
+        try:
+            if OLLAMA_MODE == "cloud":
+                result = await _query_ollama_cloud(model, messages, timeout)
+            else:
+                result = await _query_ollama_local(model, messages, timeout)
+            if result is not None:
+                return result
+        except Exception as exc:
+            last_err = exc
+            logger.warning(
+                "Attempt %d/%d for model %s failed: %s",
+                attempt + 1, _retries + 1, model, exc,
+            )
+        if attempt < _retries:
+            await asyncio.sleep(1.5 * (attempt + 1))  # linear backoff
+
+    if last_err:
+        logger.error("All %d attempts for model %s exhausted.", _retries + 1, model)
+    return None
 
 
 async def _query_ollama_cloud(
@@ -78,7 +105,7 @@ async def _query_ollama_cloud(
 ) -> Optional[Dict[str, Any]]:
     """Query Ollama Cloud API (native /api/chat endpoint)."""
     if not OLLAMA_CLOUD_API_KEY:
-        print("Error: OLLAMA_CLOUD_API_KEY not configured for cloud mode")
+        logger.error("OLLAMA_CLOUD_API_KEY not configured for cloud mode")
         return None
 
     headers = {
@@ -146,10 +173,9 @@ async def _query_ollama_cloud(
                 None
             )
             if model_not_found:
-                print(
-                    f"Error querying Ollama Cloud model {model}: "
-                    f"{model_not_found['detail']}. "
-                    "Use a cloud-available model name in COUNCIL_MODELS."
+                logger.error(
+                    "Cloud model %s not found: %s. Use a cloud-available model name.",
+                    model, model_not_found["detail"],
                 )
                 return None
 
@@ -157,16 +183,16 @@ async def _query_ollama_cloud(
             status = latest.get("status_code")
             detail = latest.get("detail") or "No response body"
             attempted_endpoints = ", ".join(err["endpoint"] for err in errors)
-            print(
-                f"Error querying Ollama Cloud model {model}: "
-                f"HTTP {status} from {attempted_endpoints}. Detail: {detail}"
+            logger.error(
+                "Cloud model %s query failed: HTTP %s from %s. Detail: %s",
+                model, status, attempted_endpoints, detail,
             )
             return None
 
     except Exception as e:
-        print(
-            f"Error querying Ollama Cloud model {model}: {e} "
-            f"(configured endpoint: {OLLAMA_CLOUD_API_URL})"
+        logger.error(
+            "Cloud model %s query failed: %s (endpoint: %s)",
+            model, e, OLLAMA_CLOUD_API_URL,
         )
         return None
 
@@ -216,7 +242,7 @@ async def _query_ollama_local_generate(
                 "done": data.get("done", False),
             }
     except Exception as e:
-        print(f"Error querying local Ollama model {model}: {e}")
+        logger.error("Local Ollama generate model %s error: %s", model, e)
         return None
 
 
@@ -257,10 +283,10 @@ async def _query_ollama_local(
             }
 
     except httpx.HTTPStatusError as e:
-        print(f"Error querying local Ollama chat model {model}: {e}")
+        logger.error("Local Ollama chat model %s HTTP error: %s", model, e)
         return None
     except Exception as e:
-        print(f"Error querying local Ollama chat model {model}: {e}")
+        logger.error("Local Ollama chat model %s error: %s", model, e)
         return None
 
 
@@ -278,15 +304,8 @@ async def query_models_parallel(
     Returns:
         Dict mapping model name to response dict (or None if failed)
     """
-    import asyncio
-
-    # Create tasks for all models
     tasks = [query_model(model, messages) for model in models]
-
-    # Wait for all to complete
     responses = await asyncio.gather(*tasks)
-
-    # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
 
 
@@ -340,7 +359,7 @@ async def _query_ollama_local_stream(
                     if data.get("done"):
                         break
     except Exception as e:
-        print(f"Error streaming local Ollama model {model}: {e}")
+        logger.error("Error streaming local Ollama model %s: %s", model, e)
 
 
 async def _query_ollama_cloud_stream(
@@ -350,7 +369,7 @@ async def _query_ollama_cloud_stream(
 ) -> AsyncGenerator[str, None]:
     """Stream tokens from Ollama Cloud API."""
     if not OLLAMA_CLOUD_API_KEY:
-        print("Error: OLLAMA_CLOUD_API_KEY not configured for cloud mode")
+        logger.error("OLLAMA_CLOUD_API_KEY not configured for cloud streaming")
         return
 
     headers = {
@@ -396,12 +415,12 @@ async def _query_ollama_cloud_stream(
         except httpx.HTTPStatusError as e:
             detail = _extract_error_detail(e.response)
             if _is_model_not_found(e.response.status_code, detail):
-                print(f"Error streaming Ollama Cloud model {model}: {detail}")
+                logger.error("Cloud stream model %s not found: %s", model, detail)
                 return
             if e.response.status_code == 404 and endpoint != endpoint_candidates[-1]:
                 continue
-            print(f"Error streaming Ollama Cloud model {model}: HTTP {e.response.status_code} – {detail}")
+            logger.error("Cloud stream model %s HTTP %s: %s", model, e.response.status_code, detail)
             return
         except Exception as e:
-            print(f"Error streaming Ollama Cloud model {model}: {e}")
+            logger.error("Cloud stream model %s error: %s", model, e)
             return
