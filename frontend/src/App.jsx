@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import StagePanel from './components/StagePanel';
@@ -300,6 +301,7 @@ function App() {
         isOpen={stagePanelOpen}
         onToggle={() => setStagePanelOpen(prev => !prev)}
       />
+      <SpeedInsights />
     </div>
   );
 }
