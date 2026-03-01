@@ -4,6 +4,7 @@ import fcntl
 import json
 import logging
 import os
+import re
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,15 +14,24 @@ from .config import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
-def ensure_data_dir():
+
+def _session_data_dir(session_id: str | None = None) -> str:
+    """Return the data directory, scoped to session when provided."""
+    if session_id and _UUID_RE.match(session_id):
+        return os.path.join(DATA_DIR, session_id)
+    return DATA_DIR
+
+
+def ensure_data_dir(session_id: str | None = None):
     """Ensure the data directory exists."""
-    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+    Path(_session_data_dir(session_id)).mkdir(parents=True, exist_ok=True)
 
 
-def get_conversation_path(conversation_id: str) -> str:
+def get_conversation_path(conversation_id: str, session_id: str | None = None) -> str:
     """Get the file path for a conversation."""
-    return os.path.join(DATA_DIR, f"{conversation_id}.json")
+    return os.path.join(_session_data_dir(session_id), f"{conversation_id}.json")
 
 
 @contextmanager
@@ -58,9 +68,9 @@ def _write_json(fh, data: Dict[str, Any]):
     fh.flush()
 
 
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
+def create_conversation(conversation_id: str, session_id: str | None = None) -> Dict[str, Any]:
     """Create a new conversation."""
-    ensure_data_dir()
+    ensure_data_dir(session_id)
 
     conversation = {
         "id": conversation_id,
@@ -69,7 +79,7 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
         "messages": [],
     }
 
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
     with _locked_write(path) as fh:
         _write_json(fh, conversation)
 
@@ -77,9 +87,9 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
     return conversation
 
 
-def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
+def get_conversation(conversation_id: str, session_id: str | None = None) -> Optional[Dict[str, Any]]:
     """Load a conversation from storage."""
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
 
     if not os.path.exists(path):
         return None
@@ -88,24 +98,25 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
         return json.load(fh)
 
 
-def save_conversation(conversation: Dict[str, Any]):
+def save_conversation(conversation: Dict[str, Any], session_id: str | None = None):
     """Save a conversation to storage (locked)."""
-    ensure_data_dir()
+    ensure_data_dir(session_id)
 
-    path = get_conversation_path(conversation["id"])
+    path = get_conversation_path(conversation["id"], session_id)
     with _locked_write(path) as fh:
         _write_json(fh, conversation)
 
 
-def list_conversations() -> List[Dict[str, Any]]:
+def list_conversations(session_id: str | None = None) -> List[Dict[str, Any]]:
     """List all conversations (metadata only)."""
-    ensure_data_dir()
+    data_dir = _session_data_dir(session_id)
+    ensure_data_dir(session_id)
 
     conversations = []
-    for filename in os.listdir(DATA_DIR):
+    for filename in os.listdir(data_dir):
         if not filename.endswith(".json"):
             continue
-        path = os.path.join(DATA_DIR, filename)
+        path = os.path.join(data_dir, filename)
         try:
             with _locked_read(path) as fh:
                 data = json.load(fh)
@@ -124,9 +135,9 @@ def list_conversations() -> List[Dict[str, Any]]:
     return conversations
 
 
-def delete_conversation(conversation_id: str) -> bool:
+def delete_conversation(conversation_id: str, session_id: str | None = None) -> bool:
     """Delete a conversation. Returns True if deleted, False if not found."""
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
     if not os.path.exists(path):
         return False
     try:
@@ -138,9 +149,9 @@ def delete_conversation(conversation_id: str) -> bool:
         return False
 
 
-def add_user_message(conversation_id: str, content: str):
+def add_user_message(conversation_id: str, content: str, session_id: str | None = None):
     """Add a user message to a conversation (locked read-modify-write)."""
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
 
     with _locked_write(path) as fh:
         fh.seek(0)
@@ -155,9 +166,10 @@ def add_assistant_message(
     stage2: List[Dict[str, Any]],
     stage3: Dict[str, Any],
     metadata: Optional[Dict[str, Any]] = None,
+    session_id: str | None = None,
 ):
     """Add an assistant message with all 3 stages + metadata to a conversation."""
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
 
     with _locked_write(path) as fh:
         fh.seek(0)
@@ -176,9 +188,9 @@ def add_assistant_message(
         _write_json(fh, conversation)
 
 
-def update_conversation_title(conversation_id: str, title: str):
+def update_conversation_title(conversation_id: str, title: str, session_id: str | None = None):
     """Update the title of a conversation (locked read-modify-write)."""
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, session_id)
 
     with _locked_write(path) as fh:
         fh.seek(0)

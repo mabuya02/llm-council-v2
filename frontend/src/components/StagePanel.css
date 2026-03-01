@@ -1,6 +1,6 @@
 .stage-panel {
-  width: 340px;
-  min-width: 340px;
+  width: 480px;
+  min-width: 480px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -353,8 +353,8 @@
 
 @media (max-width: 1200px) {
   .stage-panel {
-    width: 300px;
-    min-width: 300px;
+    width: 400px;
+    min-width: 400px;
   }
 }
 

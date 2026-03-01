@@ -7,12 +7,36 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001';
 const MAX_SSE_RETRIES = 2;
 const SSE_RETRY_DELAY = 1500;
 
+/**
+ * Get or create a persistent session ID for this browser.
+ * Stored in localStorage so it survives page reloads.
+ */
+function getSessionId() {
+  const KEY = 'llm_council_session_id';
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+}
+
+/** Common headers sent with every request. */
+function baseHeaders(extra = {}) {
+  return {
+    'X-Session-ID': getSessionId(),
+    ...extra,
+  };
+}
+
 export const api = {
   /**
    * List all conversations.
    */
   async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
+    const response = await fetch(`${API_BASE}/api/conversations`, {
+      headers: baseHeaders(),
+    });
     if (!response.ok) {
       throw new Error('Failed to list conversations');
     }
@@ -25,9 +49,9 @@ export const api = {
   async createConversation() {
     const response = await fetch(`${API_BASE}/api/conversations`, {
       method: 'POST',
-      headers: {
+      headers: baseHeaders({
         'Content-Type': 'application/json',
-      },
+      }),
       body: JSON.stringify({}),
     });
     if (!response.ok) {
@@ -41,7 +65,8 @@ export const api = {
    */
   async getConversation(conversationId) {
     const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}`
+      `${API_BASE}/api/conversations/${conversationId}`,
+      { headers: baseHeaders() }
     );
     if (!response.ok) {
       throw new Error('Failed to get conversation');
@@ -55,7 +80,7 @@ export const api = {
   async deleteConversation(conversationId) {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}`,
-      { method: 'DELETE' }
+      { method: 'DELETE', headers: baseHeaders() }
     );
     if (!response.ok) {
       throw new Error('Failed to delete conversation');
@@ -67,7 +92,9 @@ export const api = {
    * Get runtime backend configuration.
    */
   async getRuntimeConfig() {
-    const response = await fetch(`${API_BASE}/api/runtime-config`);
+    const response = await fetch(`${API_BASE}/api/runtime-config`, {
+      headers: baseHeaders(),
+    });
     if (!response.ok) {
       throw new Error('Failed to load runtime config');
     }
@@ -82,9 +109,9 @@ export const api = {
       `${API_BASE}/api/conversations/${conversationId}/message`,
       {
         method: 'POST',
-        headers: {
+        headers: baseHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
         body: JSON.stringify({ content }),
       }
     );
@@ -110,9 +137,9 @@ export const api = {
           `${API_BASE}/api/conversations/${conversationId}/message/stream`,
           {
             method: 'POST',
-            headers: {
+            headers: baseHeaders({
               'Content-Type': 'application/json',
-            },
+            }),
             body: JSON.stringify({ content }),
           }
         );
