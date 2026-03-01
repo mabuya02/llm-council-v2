@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
-import Sidebar from "./components/Sidebar";
-import ChatInterface from "./components/ChatInterface";
-import StagePanel from "./components/StagePanel";
-import { useToast } from "./components/Toast";
-import { api } from "./api";
-import "./App.css";
+import { useState, useEffect, useCallback } from 'react';
+import Sidebar from './components/Sidebar';
+import ChatInterface from './components/ChatInterface';
+import StagePanel from './components/StagePanel';
+import { useToast } from './components/Toast';
+import { api } from './api';
+import './App.css';
 
 function App() {
   const [conversations, setConversations] = useState([]);
@@ -427,141 +427,31 @@ function App() {
 
   return (
     <div className="app">
-      {/* Desktop sidebar */}
-      <div className={`desktop-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
-        <Sidebar
-          conversations={conversations}
-          currentConversationId={currentConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onDeleteConversation={handleDeleteConversation}
-          runtimeConfig={runtimeConfig}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen((prev) => !prev)}
-        />
-      </div>
-
-      {/* Mobile sidebar overlay */}
-      <div
-        className={`mobile-panel-overlay ${mobileView === "sidebar" ? "visible" : ""}`}
-      >
-        <Sidebar
-          conversations={conversations}
-          currentConversationId={currentConversationId}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onDeleteConversation={handleDeleteConversation}
-          runtimeConfig={runtimeConfig}
-          isOpen={true}
-          onToggle={() => setMobileView("chat")}
-        />
-      </div>
-
-      {/* Main chat */}
-      <div
-        className={`main-chat-area ${mobileView !== "chat" ? "mobile-hidden" : ""}`}
-      >
-        <ChatInterface
-          conversation={currentConversation}
-          onSendMessage={handleSendMessage}
-          onNewConversation={handleNewConversation}
-          onInspectMessage={handleInspectMessage}
-          inspectedMessageIndex={inspectedMessageIndex}
-          isLoading={isLoading}
-          runtimeConfig={runtimeConfig}
-        />
-      </div>
-
-      {/* Desktop stage panel */}
-      <div className="desktop-stage-panel">
-        <StagePanel
-          conversation={currentConversation}
-          inspectedMessageIndex={inspectedMessageIndex}
-          isOpen={stagePanelOpen}
-          onToggle={() => setStagePanelOpen((prev) => !prev)}
-        />
-      </div>
-
-      {/* Mobile stage panel overlay */}
-      <div
-        className={`mobile-panel-overlay ${mobileView === "stages" ? "visible" : ""}`}
-      >
-        <StagePanel
-          conversation={currentConversation}
-          inspectedMessageIndex={inspectedMessageIndex}
-          isOpen={true}
-          onToggle={() => setMobileView("chat")}
-        />
-      </div>
-
-      {/* Mobile bottom navigation */}
-      <nav className="mobile-nav">
-        <button
-          className={`mobile-nav-btn ${mobileView === "sidebar" ? "active" : ""}`}
-          onClick={() =>
-            setMobileView(mobileView === "sidebar" ? "chat" : "sidebar")
-          }
-          aria-label="Conversations"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-          </svg>
-          <span>Chats</span>
-        </button>
-        <button
-          className={`mobile-nav-btn ${mobileView === "chat" ? "active" : ""}`}
-          onClick={() => setMobileView("chat")}
-          aria-label="Chat"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <span>Council</span>
-        </button>
-        <button
-          className={`mobile-nav-btn ${mobileView === "stages" ? "active" : ""}`}
-          onClick={() =>
-            setMobileView(mobileView === "stages" ? "chat" : "stages")
-          }
-          aria-label="Stages"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          <span>Stages</span>
-          {hasStages && <span className="mobile-nav-badge" />}
-        </button>
-      </nav>
+      <Sidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
+        runtimeConfig={runtimeConfig}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(prev => !prev)}
+      />
+      <ChatInterface
+        conversation={currentConversation}
+        onSendMessage={handleSendMessage}
+        onNewConversation={handleNewConversation}
+        onInspectMessage={handleInspectMessage}
+        inspectedMessageIndex={inspectedMessageIndex}
+        isLoading={isLoading}
+        runtimeConfig={runtimeConfig}
+      />
+      <StagePanel
+        conversation={currentConversation}
+        inspectedMessageIndex={inspectedMessageIndex}
+        isOpen={stagePanelOpen}
+        onToggle={() => setStagePanelOpen(prev => !prev)}
+      />
     </div>
   );
 }
