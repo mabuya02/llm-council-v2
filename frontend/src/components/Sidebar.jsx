@@ -71,7 +71,7 @@ export default function Sidebar({
               onClick={() => onSelectConversation(conv.id)}
             >
               <div className="conversation-title">
-                {conv.title || 'New Conversation'}
+                {(conv.title || 'New Conversation').replace(/\*{1,3}/g, '').replace(/_{1,3}/g, '').replace(/`/g, '').replace(/^#+\s*/, '')}
               </div>
               <div className="conversation-meta">
                 {conv.message_count} messages · {formatCreatedAt(conv.created_at)}

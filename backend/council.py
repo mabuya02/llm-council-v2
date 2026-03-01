@@ -326,7 +326,8 @@ async def generate_conversation_title(user_query: str) -> str:
         A short title (3-5 words)
     """
     title_prompt = f"""Generate a very short title (3-5 words maximum) that summarizes the following question.
-The title should be concise and descriptive. Do not use quotes or punctuation in the title.
+The title should be concise and descriptive. Do not use quotes, punctuation, or any markdown formatting.
+Return only plain text.
 
 Question: {user_query}
 
@@ -344,8 +345,15 @@ Title:"""
     if not title:
         return _fallback_title_from_query(user_query)
 
-    # Clean up the title - remove quotes, limit length
+    # Clean up the title - remove quotes, markdown, limit length
     title = title.strip('"\'')
+    # Strip markdown bold/italic markers
+    import re
+    title = re.sub(r'\*{1,3}', '', title)
+    title = re.sub(r'_{1,3}', '', title)
+    title = re.sub(r'`', '', title)
+    title = re.sub(r'#+\s*', '', title)
+    title = title.strip()
 
     # Truncate if too long
     if len(title) > 50:
