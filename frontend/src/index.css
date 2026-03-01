@@ -130,3 +130,87 @@ body {
   border-left: 3px solid var(--accent);
   color: var(--text-muted);
 }
+
+/* ---- Tables ---- */
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 165, 255, 0.18) transparent;
+}
+
+.markdown-content table::-webkit-scrollbar {
+  height: 4px;
+}
+
+.markdown-content table::-webkit-scrollbar-thumb {
+  background: rgba(139, 165, 255, 0.18);
+  border-radius: 4px;
+}
+
+.markdown-content thead {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.markdown-content tbody {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.markdown-content th {
+  background: rgba(139, 165, 255, 0.1);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid rgba(139, 165, 255, 0.25);
+  white-space: nowrap;
+}
+
+.markdown-content td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.markdown-content tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-content tbody tr:hover {
+  background: rgba(139, 165, 255, 0.06);
+}
+
+/* Strikethrough (GFM) */
+.markdown-content del {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+/* Horizontal rule */
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+/* Task lists (GFM) */
+.markdown-content input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--accent);
+}
