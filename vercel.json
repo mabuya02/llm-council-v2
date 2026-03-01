@@ -1,8 +1,10 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "buildCommand": "cd frontend && npm install && VITE_API_BASE= npm run build",
   "outputDirectory": "frontend/dist",
   "framework": null,
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.py" }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
