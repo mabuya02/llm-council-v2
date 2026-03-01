@@ -53,10 +53,16 @@ CHAIRMAN_MODEL = os.getenv("CHAIRMAN_MODEL", COUNCIL_MODELS[0])
 TITLE_MODEL = os.getenv("TITLE_MODEL", CHAIRMAN_MODEL)
 
 # Data directory for conversation storage
-DATA_DIR = os.getenv("DATA_DIR", "data/conversations")
+# On Vercel, the project filesystem is read-only; use /tmp for ephemeral storage.
+_default_data_dir = "/tmp/data/conversations" if os.getenv("VERCEL") else "data/conversations"
+DATA_DIR = os.getenv("DATA_DIR", _default_data_dir)
 
 # CORS allowed origins (comma-separated)
-_cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+# On Vercel, allow the deployment URLs by default
+_default_cors = "http://localhost:5173,http://localhost:3000"
+if os.getenv("VERCEL_URL"):
+    _default_cors += f",https://{os.getenv('VERCEL_URL')}"
+_cors_raw = os.getenv("CORS_ORIGINS", _default_cors)
 CORS_ORIGINS = [o.strip() for o in _cors_raw.split(",") if o.strip()]
 
 # LLM provider (kept for future expansion; only "ollama" supported today)
