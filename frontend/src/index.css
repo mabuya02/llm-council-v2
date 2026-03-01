@@ -28,6 +28,10 @@
   --shadow-lg: 0 28px 56px rgba(2, 5, 12, 0.45);
   --shadow-md: 0 14px 32px rgba(2, 5, 12, 0.38);
 
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
   font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
@@ -43,22 +47,72 @@
   box-sizing: border-box;
 }
 
+/* Global smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Global scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 165, 255, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 165, 255, 0.28);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 165, 255, 0.15) transparent;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text);
   background:
     radial-gradient(850px 500px at 50% -22%, rgba(139, 165, 255, 0.32) 0%, transparent 60%),
     radial-gradient(680px 420px at 82% 12%, rgba(99, 213, 255, 0.12) 0%, transparent 58%),
     linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 54%, #04060a 100%);
+  background-attachment: fixed;
 }
 
 #root {
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
 }
+
+/* ---- Focus styles ---- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ---- Selection ---- */
+::selection {
+  background: rgba(139, 165, 255, 0.3);
+  color: #fff;
+}
+
+/* ---- Markdown content ---- */
 
 .markdown-content {
   padding: 10px;
@@ -213,4 +267,26 @@ body {
 .markdown-content input[type="checkbox"] {
   margin-right: 6px;
   accent-color: var(--accent);
+}
+
+/* ---- Mobile markdown adjustments ---- */
+@media (max-width: 980px) {
+  .markdown-content {
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  .markdown-content pre {
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .markdown-content table {
+    font-size: 12px;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    padding: 6px 8px;
+  }
 }

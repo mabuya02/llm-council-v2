@@ -1,20 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import './StagePanel.css';
 
 export default function StagePanel({ conversation, inspectedMessageIndex, isOpen, onToggle }) {
   const [activeStage, setActiveStage] = useState(null);
-
-  if (!isOpen) {
-    return (
-      <div className="stage-panel collapsed">
-        <button className="panel-toggle" onClick={onToggle} aria-label="Expand stage panel">
-          <span className="toggle-icon">‹</span>
-        </button>
-      </div>
-    );
-  }
 
   const hasConversation = conversation && conversation.messages.length > 0;
   const assistantMessages = hasConversation
@@ -31,6 +21,31 @@ export default function StagePanel({ conversation, inspectedMessageIndex, isOpen
   }
   if (!targetAssistant && assistantMessages.length > 0) {
     targetAssistant = assistantMessages[assistantMessages.length - 1];
+  }
+
+  // Auto-expand the stage that is currently streaming
+  // (This hook must be ABOVE all early returns to satisfy Rules of Hooks)
+  useEffect(() => {
+    if (targetAssistant?.loading?.stage1 && targetAssistant.stage1?.length > 0) {
+      setActiveStage('stage1');
+    } else if (targetAssistant?.loading?.stage2 && targetAssistant.stage2?.length > 0) {
+      setActiveStage('stage2');
+    }
+  }, [
+    targetAssistant?.loading?.stage1,
+    targetAssistant?.loading?.stage2,
+    targetAssistant?.stage1?.length,
+    targetAssistant?.stage2?.length,
+  ]);
+
+  if (!isOpen) {
+    return (
+      <div className="stage-panel collapsed">
+        <button className="panel-toggle" onClick={onToggle} aria-label="Expand stage panel">
+          <span className="toggle-icon">‹</span>
+        </button>
+      </div>
+    );
   }
 
   if (!hasConversation || !targetAssistant) {
@@ -53,9 +68,10 @@ export default function StagePanel({ conversation, inspectedMessageIndex, isOpen
       label: 'Individual Responses',
       shortLabel: 'Stage 1',
       loading: targetAssistant.loading?.stage1,
-      done: !!targetAssistant.stage1,
-      content: targetAssistant.stage1 ? (
-        <Stage1 responses={targetAssistant.stage1} />
+      done: !!targetAssistant.stage1 && !targetAssistant.loading?.stage1,
+      hasContent: targetAssistant.stage1 && targetAssistant.stage1.length > 0,
+      content: targetAssistant.stage1 && targetAssistant.stage1.length > 0 ? (
+        <Stage1 responses={targetAssistant.stage1} streaming={targetAssistant.loading?.stage1} />
       ) : null,
     },
     {
@@ -63,12 +79,14 @@ export default function StagePanel({ conversation, inspectedMessageIndex, isOpen
       label: 'Peer Rankings',
       shortLabel: 'Stage 2',
       loading: targetAssistant.loading?.stage2,
-      done: !!targetAssistant.stage2,
-      content: targetAssistant.stage2 ? (
+      done: !!targetAssistant.stage2 && !targetAssistant.loading?.stage2,
+      hasContent: targetAssistant.stage2 && targetAssistant.stage2.length > 0,
+      content: targetAssistant.stage2 && targetAssistant.stage2.length > 0 ? (
         <Stage2
           rankings={targetAssistant.stage2}
           labelToModel={targetAssistant.metadata?.label_to_model}
           aggregateRankings={targetAssistant.metadata?.aggregate_rankings}
+          streaming={targetAssistant.loading?.stage2}
         />
       ) : null,
     },
@@ -77,7 +95,8 @@ export default function StagePanel({ conversation, inspectedMessageIndex, isOpen
       label: 'Final Synthesis',
       shortLabel: 'Stage 3',
       loading: targetAssistant.loading?.stage3,
-      done: !!targetAssistant.stage3,
+      done: !!targetAssistant.stage3 && !targetAssistant.loading?.stage3,
+      hasContent: false,
       content: null, // Stage 3 shown in main chat
     },
   ];
@@ -126,10 +145,10 @@ export default function StagePanel({ conversation, inspectedMessageIndex, isOpen
             <button
               className="stage-accordion-trigger"
               onClick={() => toggleStage(stage.id)}
-              disabled={!stage.done}
+              disabled={!stage.done && !stage.hasContent}
             >
               <span className="accordion-label">{stage.label}</span>
-              {stage.loading && <span className="accordion-status loading">Running...</span>}
+              {stage.loading && <span className="accordion-status loading">Streaming...</span>}
               {stage.done && <span className="accordion-status done">Complete</span>}
               {!stage.done && !stage.loading && <span className="accordion-status pending">Pending</span>}
               <span className={`accordion-chevron ${activeStage === stage.id ? 'open' : ''}`}>›</span>

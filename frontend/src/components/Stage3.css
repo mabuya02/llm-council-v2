@@ -64,3 +64,28 @@
 .stage3-recovery li {
   margin: 3px 0;
 }
+
+/* Mobile */
+@media (max-width: 980px) {
+  .stage3 {
+    padding: 10px;
+    margin: 12px 0;
+  }
+
+  .final-response {
+    padding: 10px;
+  }
+
+  .final-text {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .chairman-label {
+    font-size: 10px;
+  }
+
+  .stage3-recovery ul {
+    font-size: 11px;
+  }
+}

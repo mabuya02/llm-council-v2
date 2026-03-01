@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import Sidebar from './components/Sidebar';
-import ChatInterface from './components/ChatInterface';
-import StagePanel from './components/StagePanel';
-import { useToast } from './components/Toast';
-import { api } from './api';
-import './App.css';
+import { useState, useEffect, useCallback } from "react";
+import Sidebar from "./components/Sidebar";
+import ChatInterface from "./components/ChatInterface";
+import StagePanel from "./components/StagePanel";
+import { useToast } from "./components/Toast";
+import { api } from "./api";
+import "./App.css";
 
 function App() {
   const [conversations, setConversations] = useState([]);
@@ -16,6 +16,8 @@ function App() {
   const [stagePanelOpen, setStagePanelOpen] = useState(true);
   // Index of the assistant message whose stages to show (null = latest)
   const [inspectedMessageIndex, setInspectedMessageIndex] = useState(null);
+  // Mobile view: 'chat' | 'sidebar' | 'stages'
+  const [mobileView, setMobileView] = useState("chat");
 
   const { addToast } = useToast();
 
@@ -25,25 +27,34 @@ function App() {
       setConversations(convs);
       setCurrentConversationId((prevId) => prevId || convs[0]?.id || null);
     } catch (error) {
-      addToast('Failed to load conversations. Is the backend running?', 'error');
+      addToast(
+        "Failed to load conversations. Is the backend running?",
+        "error",
+      );
     }
   }, [addToast]);
 
-  const loadConversation = useCallback(async (id) => {
-    try {
-      const conv = await api.getConversation(id);
-      setCurrentConversation(conv);
-    } catch (error) {
-      addToast('Failed to load conversation.', 'error');
-    }
-  }, [addToast]);
+  const loadConversation = useCallback(
+    async (id) => {
+      try {
+        const conv = await api.getConversation(id);
+        setCurrentConversation(conv);
+      } catch (error) {
+        addToast("Failed to load conversation.", "error");
+      }
+    },
+    [addToast],
+  );
 
   const loadRuntimeConfig = useCallback(async () => {
     try {
       const config = await api.getRuntimeConfig();
       setRuntimeConfig(config);
     } catch (error) {
-      addToast('Cannot reach backend. Check that the server is running.', 'warning');
+      addToast(
+        "Cannot reach backend. Check that the server is running.",
+        "warning",
+      );
     }
   }, [addToast]);
 
@@ -72,21 +83,21 @@ function App() {
   useEffect(() => {
     const handler = (e) => {
       const isMod = e.metaKey || e.ctrlKey;
-      if (isMod && e.key === 'n') {
+      if (isMod && e.key === "n") {
         e.preventDefault();
         handleNewConversation();
       }
-      if (isMod && e.key === 'b') {
+      if (isMod && e.key === "b") {
         e.preventDefault();
         setSidebarOpen((prev) => !prev);
       }
-      if (isMod && e.key === '.') {
+      if (isMod && e.key === ".") {
         e.preventDefault();
         setStagePanelOpen((prev) => !prev);
       }
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, []);
 
   const handleNewConversation = async () => {
@@ -96,7 +107,7 @@ function App() {
         {
           id: newConv.id,
           created_at: newConv.created_at,
-          title: newConv.title || 'New Conversation',
+          title: newConv.title || "New Conversation",
           message_count: 0,
         },
         ...prev,
@@ -104,8 +115,9 @@ function App() {
       setCurrentConversationId(newConv.id);
       setCurrentConversation(newConv);
       setInspectedMessageIndex(null);
+      setMobileView("chat");
     } catch (error) {
-      addToast('Failed to create conversation.', 'error');
+      addToast("Failed to create conversation.", "error");
     }
   };
 
@@ -118,14 +130,15 @@ function App() {
         setCurrentConversation(null);
         setInspectedMessageIndex(null);
       }
-      addToast('Conversation deleted.', 'success', 3000);
+      addToast("Conversation deleted.", "success", 3000);
     } catch (error) {
-      addToast('Failed to delete conversation.', 'error');
+      addToast("Failed to delete conversation.", "error");
     }
   };
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+    setMobileView("chat");
   };
 
   const handleInspectMessage = (msgIndex) => {
@@ -142,7 +155,7 @@ function App() {
     try {
       // Create a partial assistant message that will be updated progressively.
       const assistantMessage = {
-        role: 'assistant',
+        role: "assistant",
         stage1: null,
         stage2: null,
         stage3: null,
@@ -159,7 +172,11 @@ function App() {
         if (!prev) return prev;
         return {
           ...prev,
-          messages: [...prev.messages, { role: 'user', content }, assistantMessage],
+          messages: [
+            ...prev.messages,
+            { role: "user", content },
+            assistantMessage,
+          ],
         };
       });
 
@@ -169,11 +186,13 @@ function App() {
           const messages = [...prev.messages];
           const lastIndex = messages.length - 1;
           const lastMessage = messages[lastIndex];
-          if (lastMessage.role !== 'assistant') return prev;
+          if (lastMessage.role !== "assistant") return prev;
 
           const clonedMessage = {
             ...lastMessage,
-            loading: lastMessage.loading ? { ...lastMessage.loading } : undefined,
+            loading: lastMessage.loading
+              ? { ...lastMessage.loading }
+              : undefined,
           };
           messages[lastIndex] = updater(clonedMessage);
           return { ...prev, messages };
@@ -181,86 +200,212 @@ function App() {
       };
 
       // Send message with streaming
-      await api.sendMessageStream(targetConversationId, content, (eventType, event) => {
-        switch (eventType) {
-          case 'stage1_start':
-            updateLatestAssistantMessage((message) => {
-              message.loading.stage1 = true;
-              return message;
-            });
-            break;
+      await api.sendMessageStream(
+        targetConversationId,
+        content,
+        (eventType, event) => {
+          switch (eventType) {
+            case "stage1_start":
+              updateLatestAssistantMessage((message) => {
+                message.loading.stage1 = true;
+                message.stage1 = []; // initialize empty array for streaming
+                return message;
+              });
+              break;
 
-          case 'stage1_complete':
-            updateLatestAssistantMessage((message) => {
-              message.stage1 = event.data;
-              message.loading.stage1 = false;
-              return message;
-            });
-            break;
+            case "stage1_model_token":
+              updateLatestAssistantMessage((message) => {
+                if (!message.stage1) message.stage1 = [];
+                const existing = message.stage1.find(
+                  (r) => r.model === event.model,
+                );
+                if (existing) {
+                  // Clone array with updated entry
+                  message.stage1 = message.stage1.map((r) =>
+                    r.model === event.model
+                      ? { ...r, response: r.response + event.token }
+                      : r,
+                  );
+                } else {
+                  message.stage1 = [
+                    ...message.stage1,
+                    {
+                      model: event.model,
+                      response: event.token,
+                      streaming: true,
+                    },
+                  ];
+                }
+                return message;
+              });
+              break;
 
-          case 'stage2_start':
-            updateLatestAssistantMessage((message) => {
-              message.loading.stage2 = true;
-              return message;
-            });
-            break;
+            case "stage1_model_complete":
+              updateLatestAssistantMessage((message) => {
+                if (!message.stage1) message.stage1 = [];
+                const existing = message.stage1.find(
+                  (r) => r.model === event.model,
+                );
+                if (existing) {
+                  message.stage1 = message.stage1.map((r) =>
+                    r.model === event.model
+                      ? {
+                          model: r.model,
+                          response: event.response,
+                          streaming: false,
+                        }
+                      : r,
+                  );
+                } else {
+                  message.stage1 = [
+                    ...message.stage1,
+                    {
+                      model: event.model,
+                      response: event.response,
+                      streaming: false,
+                    },
+                  ];
+                }
+                return message;
+              });
+              break;
 
-          case 'stage2_complete':
-            updateLatestAssistantMessage((message) => {
-              message.stage2 = event.data;
-              message.metadata = event.metadata;
-              message.loading.stage2 = false;
-              return message;
-            });
-            break;
+            case "stage1_complete":
+              updateLatestAssistantMessage((message) => {
+                message.stage1 = event.data;
+                message.loading.stage1 = false;
+                return message;
+              });
+              break;
 
-          case 'stage3_start':
-            updateLatestAssistantMessage((message) => {
-              message.loading.stage3 = true;
-              return message;
-            });
-            break;
+            case "stage2_start":
+              updateLatestAssistantMessage((message) => {
+                message.loading.stage2 = true;
+                message.stage2 = []; // initialize empty array for streaming
+                return message;
+              });
+              break;
 
-          case 'stage3_token':
-            updateLatestAssistantMessage((message) => {
-              if (!message.stage3) {
-                message.stage3 = { model: event.model || '', response: event.token };
-              } else {
-                message.stage3 = { ...message.stage3, response: message.stage3.response + event.token };
-              }
-              return message;
-            });
-            break;
+            case "stage2_model_token":
+              updateLatestAssistantMessage((message) => {
+                if (!message.stage2) message.stage2 = [];
+                const existing = message.stage2.find(
+                  (r) => r.model === event.model,
+                );
+                if (existing) {
+                  message.stage2 = message.stage2.map((r) =>
+                    r.model === event.model
+                      ? { ...r, ranking: r.ranking + event.token }
+                      : r,
+                  );
+                } else {
+                  message.stage2 = [
+                    ...message.stage2,
+                    {
+                      model: event.model,
+                      ranking: event.token,
+                      streaming: true,
+                    },
+                  ];
+                }
+                return message;
+              });
+              break;
 
-          case 'stage3_complete':
-            updateLatestAssistantMessage((message) => {
-              message.stage3 = event.data;
-              message.loading.stage3 = false;
-              return message;
-            });
-            break;
+            case "stage2_model_complete":
+              updateLatestAssistantMessage((message) => {
+                if (!message.stage2) message.stage2 = [];
+                const existing = message.stage2.find(
+                  (r) => r.model === event.model,
+                );
+                if (existing) {
+                  message.stage2 = message.stage2.map((r) =>
+                    r.model === event.model
+                      ? {
+                          model: r.model,
+                          ranking: event.response,
+                          parsed_ranking: r.parsed_ranking,
+                          streaming: false,
+                        }
+                      : r,
+                  );
+                } else {
+                  message.stage2 = [
+                    ...message.stage2,
+                    {
+                      model: event.model,
+                      ranking: event.response,
+                      streaming: false,
+                    },
+                  ];
+                }
+                return message;
+              });
+              break;
 
-          case 'title_complete':
-            loadConversations();
-            break;
+            case "stage2_complete":
+              updateLatestAssistantMessage((message) => {
+                message.stage2 = event.data;
+                message.metadata = event.metadata;
+                message.loading.stage2 = false;
+                return message;
+              });
+              break;
 
-          case 'complete':
-            loadConversations();
-            loadConversation(targetConversationId);
-            setIsLoading(false);
-            break;
+            case "stage3_start":
+              updateLatestAssistantMessage((message) => {
+                message.loading.stage3 = true;
+                return message;
+              });
+              break;
 
-          case 'error':
-            addToast(`Council error: ${event.message}`, 'error');
-            setIsLoading(false);
-            break;
+            case "stage3_token":
+              updateLatestAssistantMessage((message) => {
+                if (!message.stage3) {
+                  message.stage3 = {
+                    model: event.model || "",
+                    response: event.token,
+                  };
+                } else {
+                  message.stage3 = {
+                    ...message.stage3,
+                    response: message.stage3.response + event.token,
+                  };
+                }
+                return message;
+              });
+              break;
 
-          default:
-            console.log('Unknown event type:', eventType);
-        }
-      });
+            case "stage3_complete":
+              updateLatestAssistantMessage((message) => {
+                message.stage3 = event.data;
+                message.loading.stage3 = false;
+                return message;
+              });
+              break;
+
+            case "title_complete":
+              loadConversations();
+              break;
+
+            case "complete":
+              loadConversations();
+              loadConversation(targetConversationId);
+              setIsLoading(false);
+              break;
+
+            case "error":
+              addToast(`Council error: ${event.message}`, "error");
+              setIsLoading(false);
+              break;
+
+            default:
+              console.log("Unknown event type:", eventType);
+          }
+        },
+      );
     } catch (error) {
-      addToast(`Failed to send message: ${error.message}`, 'error');
+      addToast(`Failed to send message: ${error.message}`, "error");
       // Remove optimistic messages on error
       setCurrentConversation((prev) => {
         if (!prev) return prev;
@@ -273,33 +418,150 @@ function App() {
     }
   };
 
+  // Check if any assistant message has stages for the badge
+  const hasStages = currentConversation?.messages?.some(
+    (m) =>
+      m.role === "assistant" &&
+      (m.stage1 || m.stage2 || m.loading?.stage1 || m.loading?.stage2),
+  );
+
   return (
     <div className="app">
-      <Sidebar
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        runtimeConfig={runtimeConfig}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(prev => !prev)}
-      />
-      <ChatInterface
-        conversation={currentConversation}
-        onSendMessage={handleSendMessage}
-        onNewConversation={handleNewConversation}
-        onInspectMessage={handleInspectMessage}
-        inspectedMessageIndex={inspectedMessageIndex}
-        isLoading={isLoading}
-        runtimeConfig={runtimeConfig}
-      />
-      <StagePanel
-        conversation={currentConversation}
-        inspectedMessageIndex={inspectedMessageIndex}
-        isOpen={stagePanelOpen}
-        onToggle={() => setStagePanelOpen(prev => !prev)}
-      />
+      {/* Desktop sidebar */}
+      <div className={`desktop-sidebar ${sidebarOpen ? "" : "collapsed"}`}>
+        <Sidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onDeleteConversation={handleDeleteConversation}
+          runtimeConfig={runtimeConfig}
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen((prev) => !prev)}
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      <div
+        className={`mobile-panel-overlay ${mobileView === "sidebar" ? "visible" : ""}`}
+      >
+        <Sidebar
+          conversations={conversations}
+          currentConversationId={currentConversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onDeleteConversation={handleDeleteConversation}
+          runtimeConfig={runtimeConfig}
+          isOpen={true}
+          onToggle={() => setMobileView("chat")}
+        />
+      </div>
+
+      {/* Main chat */}
+      <div
+        className={`main-chat-area ${mobileView !== "chat" ? "mobile-hidden" : ""}`}
+      >
+        <ChatInterface
+          conversation={currentConversation}
+          onSendMessage={handleSendMessage}
+          onNewConversation={handleNewConversation}
+          onInspectMessage={handleInspectMessage}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isLoading={isLoading}
+          runtimeConfig={runtimeConfig}
+        />
+      </div>
+
+      {/* Desktop stage panel */}
+      <div className="desktop-stage-panel">
+        <StagePanel
+          conversation={currentConversation}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isOpen={stagePanelOpen}
+          onToggle={() => setStagePanelOpen((prev) => !prev)}
+        />
+      </div>
+
+      {/* Mobile stage panel overlay */}
+      <div
+        className={`mobile-panel-overlay ${mobileView === "stages" ? "visible" : ""}`}
+      >
+        <StagePanel
+          conversation={currentConversation}
+          inspectedMessageIndex={inspectedMessageIndex}
+          isOpen={true}
+          onToggle={() => setMobileView("chat")}
+        />
+      </div>
+
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-nav">
+        <button
+          className={`mobile-nav-btn ${mobileView === "sidebar" ? "active" : ""}`}
+          onClick={() =>
+            setMobileView(mobileView === "sidebar" ? "chat" : "sidebar")
+          }
+          aria-label="Conversations"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+          <span>Chats</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${mobileView === "chat" ? "active" : ""}`}
+          onClick={() => setMobileView("chat")}
+          aria-label="Chat"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>Council</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${mobileView === "stages" ? "active" : ""}`}
+          onClick={() =>
+            setMobileView(mobileView === "stages" ? "chat" : "stages")
+          }
+          aria-label="Stages"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          <span>Stages</span>
+          {hasStages && <span className="mobile-nav-badge" />}
+        </button>
+      </nav>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import json
 import logging
 
 import httpx
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from typing import List, Dict, Any, Optional, AsyncGenerator, Tuple
 
 from .config import (
     OLLAMA_MODE,
@@ -440,6 +440,8 @@ async def _query_ollama_cloud_stream(
                     return
         except httpx.HTTPStatusError as e:
             detail = _extract_error_detail(e.response)
+            if e.response.status_code == 429:
+                raise RateLimitError(f"429 rate-limited streaming {model}: {detail}")
             if _is_model_not_found(e.response.status_code, detail):
                 logger.error("Cloud stream model %s not found: %s", model, detail)
                 return
@@ -447,6 +449,79 @@ async def _query_ollama_cloud_stream(
                 continue
             logger.error("Cloud stream model %s HTTP %s: %s", model, e.response.status_code, detail)
             return
+        except RateLimitError:
+            raise  # propagate to caller for retry
         except Exception as e:
             logger.error("Cloud stream model %s error: %s", model, e)
             return
+
+
+# ---------------------------------------------------------------------------
+# Parallel streaming – stream tokens from multiple models concurrently.
+# ---------------------------------------------------------------------------
+
+async def query_models_parallel_stream(
+    models: List[str],
+    messages: List[Dict[str, str]],
+    timeout: float = 180.0,
+) -> AsyncGenerator[Tuple[str, str, bool], None]:
+    """
+    Stream tokens from multiple models concurrently.
+
+    Yields ``(model_name, text, is_done)`` tuples.
+    * ``is_done=False`` → ``text`` is a single token fragment.
+    * ``is_done=True``  → ``text`` is the full accumulated response for
+      that model (all tokens concatenated).  After every model has emitted
+      an ``is_done=True`` tuple the generator finishes.
+    """
+    queue: asyncio.Queue[Tuple[str, str, bool]] = asyncio.Queue()
+
+    async def _run_model(model: str) -> None:
+        accumulated = ""
+        max_attempts = 5 if OLLAMA_MODE == "cloud" else 2
+        for attempt in range(max_attempts):
+            try:
+                if OLLAMA_MODE == "cloud":
+                    async with _cloud_semaphore:
+                        async for token in _query_ollama_cloud_stream(model, messages, timeout):
+                            accumulated += token
+                            await queue.put((model, token, False))
+                else:
+                    async for token in _query_ollama_local_stream(model, messages, timeout):
+                        accumulated += token
+                        await queue.put((model, token, False))
+                # Finished successfully
+                await queue.put((model, accumulated, True))
+                return
+            except RateLimitError:
+                backoff = 2.0 * (attempt + 1)
+                logger.info(
+                    "Rate-limited streaming %s, retry %d/%d in %.1fs",
+                    model, attempt + 1, max_attempts, backoff,
+                )
+                # Reset accumulated – the retry will re-stream from scratch
+                accumulated = ""
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(backoff)
+                    continue
+            except Exception as exc:
+                logger.error("Parallel stream model %s failed: %s", model, exc)
+                break
+
+        # Failed / exhausted retries – still signal done
+        await queue.put((model, accumulated, True))
+
+    tasks = [asyncio.create_task(_run_model(m)) for m in models]
+    done_count = 0
+    total = len(models)
+
+    try:
+        while done_count < total:
+            item = await queue.get()
+            yield item
+            if item[2]:  # is_done
+                done_count += 1
+    finally:
+        for t in tasks:
+            if not t.done():
+                t.cancel()

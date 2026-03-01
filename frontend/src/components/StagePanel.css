@@ -195,25 +195,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 165, 255, 0.18) transparent;
-}
-
-.stage-accordions::-webkit-scrollbar {
-  width: 5px;
-}
-
-.stage-accordions::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.stage-accordions::-webkit-scrollbar-thumb {
-  background: rgba(139, 165, 255, 0.18);
-  border-radius: 4px;
-}
-
-.stage-accordions::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 165, 255, 0.32);
 }
 
 .stage-accordion {
@@ -298,25 +279,6 @@
   overflow-y: auto;
   max-height: calc(100vh - 260px);
   word-break: break-word;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 165, 255, 0.18) transparent;
-}
-
-.stage-accordion-content::-webkit-scrollbar {
-  width: 4px;
-}
-
-.stage-accordion-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.stage-accordion-content::-webkit-scrollbar-thumb {
-  background: rgba(139, 165, 255, 0.18);
-  border-radius: 4px;
-}
-
-.stage-accordion-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 165, 255, 0.32);
 }
 
 @keyframes accordionSlideIn {
@@ -349,17 +311,58 @@
   font-size: 13px;
 }
 
-/* ---- Responsive ---- */
+/* ---- Desktop Responsive ---- */
 
 @media (max-width: 1200px) {
   .stage-panel {
-    width: 400px;
-    min-width: 400px;
+    width: 380px;
+    min-width: 380px;
   }
 }
 
+/* ---- Mobile ---- */
+
 @media (max-width: 980px) {
   .stage-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .stage-panel.collapsed {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+
+  .panel-toggle {
     display: none;
+  }
+
+  .stage-panel-header {
+    padding: 16px;
+  }
+
+  .stage-panel-header h3 {
+    font-size: 14px;
+  }
+
+  .stage-progress {
+    padding: 14px 12px;
+  }
+
+  .stage-accordions {
+    padding: 8px 12px 20px;
+  }
+
+  .stage-accordion-trigger {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .stage-accordion-content {
+    max-height: calc(100vh - 300px);
+    padding: 0 8px 12px;
   }
 }

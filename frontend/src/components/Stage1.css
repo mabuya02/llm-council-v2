@@ -18,7 +18,7 @@
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
@@ -32,13 +32,18 @@
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
-  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+  white-space: nowrap;
 }
 
 .tab:hover {
   background: rgba(31, 44, 70, 0.86);
   color: var(--text);
   border-color: var(--border-strong);
+}
+
+.tab:active {
+  transform: scale(0.96);
 }
 
 .tab.active {
@@ -64,4 +69,77 @@
 .response-text {
   color: var(--text);
   line-height: 1.6;
+}
+
+/* Streaming indicator dot on tabs */
+.tab.streaming {
+  border-color: rgba(139, 165, 255, 0.4);
+}
+
+.tab-streaming-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 6px;
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* Blinking cursor for streaming text */
+.streaming-cursor {
+  display: inline;
+  color: var(--accent);
+  animation: blink-cursor 0.7s step-end infinite;
+  font-size: 0.85em;
+  vertical-align: baseline;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Mobile */
+@media (max-width: 980px) {
+  .stage {
+    margin: 12px 0;
+    padding: 10px;
+  }
+
+  .stage-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .tabs {
+    gap: 5px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+
+  .tab {
+    font-size: 11px;
+    padding: 6px 10px;
+    flex-shrink: 0;
+  }
+
+  .tab-content {
+    padding: 10px;
+  }
+
+  .model-name {
+    font-size: 10px;
+  }
+
+  .response-text {
+    font-size: 13px;
+  }
 }

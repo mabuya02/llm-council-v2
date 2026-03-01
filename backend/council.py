@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Tuple
 
 from .config import CHAIRMAN_MODEL, COUNCIL_MODELS, TITLE_MODEL
-from .llm_client import query_model, query_models_parallel
+from .llm_client import query_model, query_models_parallel, query_models_parallel_stream
 
 logger = logging.getLogger(__name__)
 
@@ -67,19 +67,15 @@ def stage3_prepare(
     return synthesis_model, messages
 
 
-async def stage1_collect_responses(
+def stage1_prepare(
     user_query: str,
     conversation_history: List[Dict[str, Any]] | None = None,
-) -> List[Dict[str, Any]]:
+) -> List[Dict[str, str]]:
     """
-    Stage 1: Collect individual responses from all council models.
-
-    Args:
-        user_query: The user's question
-        conversation_history: Optional list of prior messages for multi-turn context
+    Build the message list for Stage 1 queries.
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        messages suitable for passing to query_model / query_models_parallel.
     """
     messages: List[Dict[str, str]] = []
     if conversation_history:
@@ -89,46 +85,25 @@ async def stage1_collect_responses(
             elif msg.get("role") == "assistant" and msg.get("stage3"):
                 messages.append({"role": "assistant", "content": msg["stage3"].get("response", "")})
     messages.append({"role": "user", "content": user_query})
-
-    # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
-
-    stage1_results = []
-    for model, response in responses.items():
-        if response is not None:  # Only include successful responses
-            stage1_results.append({
-                "model": model,
-                "response": response.get('content', '')
-            })
-
-    logger.info("Stage 1 complete: %d/%d models responded", len(stage1_results), len(COUNCIL_MODELS))
-    return stage1_results
+    return messages
 
 
-async def stage2_collect_rankings(
+def stage2_prepare(
     user_query: str,
-    stage1_results: List[Dict[str, Any]]
-) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    stage1_results: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, str]], Dict[str, str]]:
     """
-    Stage 2: Each model ranks the anonymized responses.
-
-    Args:
-        user_query: The original user query
-        stage1_results: Results from Stage 1
+    Build the ranking prompt messages and label_to_model mapping for Stage 2.
 
     Returns:
-        Tuple of (rankings list, label_to_model mapping)
+        Tuple of (messages, label_to_model)
     """
-    # Create anonymized labels for responses (Response A, Response B, etc.)
     labels = [chr(65 + i) for i in range(len(stage1_results))]  # A, B, C, ...
-
-    # Create mapping from label to model name
     label_to_model = {
-        f"Response {label}": result['model']
+        f"Response {label}": result["model"]
         for label, result in zip(labels, stage1_results)
     }
 
-    # Build the ranking prompt
     responses_text = "\n\n".join([
         f"Response {label}:\n{result['response']}"
         for label, result in zip(labels, stage1_results)
@@ -166,6 +141,55 @@ FINAL RANKING:
 Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
+    return messages, label_to_model
+
+
+async def stage1_collect_responses(
+    user_query: str,
+    conversation_history: List[Dict[str, Any]] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Stage 1: Collect individual responses from all council models.
+
+    Args:
+        user_query: The user's question
+        conversation_history: Optional list of prior messages for multi-turn context
+
+    Returns:
+        List of dicts with 'model' and 'response' keys
+    """
+    messages = stage1_prepare(user_query, conversation_history)
+
+    # Query all models in parallel
+    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+
+    stage1_results = []
+    for model, response in responses.items():
+        if response is not None:  # Only include successful responses
+            stage1_results.append({
+                "model": model,
+                "response": response.get('content', '')
+            })
+
+    logger.info("Stage 1 complete: %d/%d models responded", len(stage1_results), len(COUNCIL_MODELS))
+    return stage1_results
+
+
+async def stage2_collect_rankings(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    """
+    Stage 2: Each model ranks the anonymized responses.
+
+    Args:
+        user_query: The original user query
+        stage1_results: Results from Stage 1
+
+    Returns:
+        Tuple of (rankings list, label_to_model mapping)
+    """
+    messages, label_to_model = stage2_prepare(user_query, stage1_results)
 
     # Get rankings from all council models in parallel
     responses = await query_models_parallel(COUNCIL_MODELS, messages)

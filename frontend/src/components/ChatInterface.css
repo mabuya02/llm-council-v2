@@ -122,6 +122,7 @@
   align-items: flex-end;
   gap: 36px;
   margin: 0 auto 32px;
+  flex-wrap: wrap;
 }
 
 .figurine {
@@ -338,6 +339,10 @@
   line-height: 1;
   letter-spacing: -0.015em;
   color: var(--text);
+  background: linear-gradient(135deg, #e9eef9 30%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .grok-hero p {
@@ -360,20 +365,27 @@
 }
 
 .empty-state-cta {
-  padding: 11px 14px;
-  border-radius: 10px;
+  padding: 12px 20px;
+  border-radius: 12px;
   border: 1px solid rgba(139, 165, 255, 0.5);
   background: linear-gradient(135deg, rgba(139, 165, 255, 0.5), rgba(99, 213, 255, 0.34));
   color: #f3f6ff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.2s ease;
 }
 
 .empty-state-cta:hover {
   filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(139, 165, 255, 0.2);
+}
+
+.empty-state-cta:active {
+  transform: scale(0.97);
 }
 
 .hero-chip-row {
@@ -389,15 +401,22 @@
   background: rgba(10, 15, 24, 0.66);
   color: var(--text-muted);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.4;
 }
 
 .hero-chip:hover:not(:disabled) {
   border-color: var(--border-strong);
   color: var(--text);
   background: rgba(20, 27, 42, 0.72);
+  transform: translateY(-1px);
+}
+
+.hero-chip:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .hero-chip:disabled {
@@ -415,8 +434,16 @@
   font-size: 12px;
 }
 
+/* ---- Messages ---- */
+
 .message-group {
   margin-bottom: 22px;
+  animation: messageIn 0.3s ease-out;
+}
+
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .user-message,
@@ -498,6 +525,8 @@
   }
 }
 
+/* ---- Composer ---- */
+
 .input-form {
   display: block;
   padding: 14px 24px 18px;
@@ -537,6 +566,15 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
     0 4px 24px rgba(0, 0, 0, 0.4);
   padding: 6px 8px 6px 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.grok-composer:focus-within {
+  border-color: rgba(139, 165, 255, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(139, 165, 255, 0.12);
 }
 
 .input-form-centered .grok-composer {
@@ -558,13 +596,13 @@
   min-width: 44px;
   border-radius: 999px;
   border: none;
-  background: #eef3ff;
+  background: linear-gradient(135deg, #eef3ff, #d4dcf5);
   color: #11152a;
   cursor: pointer;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, transform 0.15s ease;
 }
 
 .grok-send:disabled {
@@ -574,6 +612,11 @@
 
 .grok-send:hover:not(:disabled) {
   filter: brightness(1.04);
+  transform: scale(1.04);
+}
+
+.grok-send:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .message-input {
@@ -595,61 +638,89 @@
   color: rgba(232, 238, 249, 0.44);
 }
 
+/* =======================================
+   MOBILE RESPONSIVE
+   ======================================= */
+
 @media (max-width: 980px) {
   .chat-interface {
     min-height: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
   }
 
   .messages-container {
-    padding: 12px;
+    padding: 14px 12px;
   }
 
   .council-figurines {
-    gap: 22px;
+    gap: 18px;
     margin-bottom: 22px;
   }
 
   .figurine-head {
-    width: 26px;
-    height: 28px;
+    width: 24px;
+    height: 26px;
   }
 
   .figurine-torso {
-    width: 34px;
-    height: 30px;
+    width: 32px;
+    height: 28px;
   }
 
   .arm {
     width: 8px;
-    height: 22px;
+    height: 20px;
   }
 
   .arm-left { left: -8px; }
   .arm-right { right: -8px; }
 
   .figurine-platform {
-    width: 40px;
+    width: 36px;
+  }
+
+  .figurine-label {
+    font-size: 8px;
+    margin-top: 6px;
   }
 
   .crown {
-    font-size: 17px;
+    font-size: 16px;
+  }
+
+  .grok-hero h2 {
+    font-size: clamp(28px, 8vw, 42px);
   }
 
   .grok-hero p {
-    font-size: 15px;
+    font-size: 14px;
     margin-bottom: 16px;
   }
 
+  .runtime-banner {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    gap: 6px;
+  }
+
+  .runtime-models {
+    display: none;
+  }
+
   .grok-composer {
-    min-height: 52px;
-    border-radius: 16px;
-    padding: 6px 10px;
+    min-height: 48px;
+    border-radius: 14px;
+    padding: 4px 6px 4px 14px;
     max-width: 100%;
   }
 
   .message-input {
     font-size: 15px;
-    min-height: 28px;
+    min-height: 24px;
+    padding: 6px 4px;
   }
 
   .grok-send {
@@ -658,11 +729,91 @@
     min-width: 38px;
   }
 
+  .input-form {
+    padding: 10px 12px 14px;
+  }
+
   .hero-chip-row {
-    justify-content: flex-start;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .hero-chip {
+    font-size: 11px;
+    padding: 7px 11px;
   }
 
   .user-message .message-content {
-    max-width: 100%;
+    max-width: 95%;
+  }
+
+  .message-group {
+    margin-bottom: 16px;
+  }
+
+  .assistant-message {
+    padding: 8px;
+  }
+
+  .stage-loading {
+    font-size: 12px;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .empty-state-cta {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
+/* Small phones */
+@media (max-width: 420px) {
+  .council-figurines {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .figurine-head {
+    width: 20px;
+    height: 22px;
+  }
+
+  .figurine-torso {
+    width: 28px;
+    height: 24px;
+  }
+
+  .arm {
+    width: 7px;
+    height: 17px;
+  }
+
+  .arm-left { left: -7px; }
+  .arm-right { right: -7px; }
+
+  .figurine-platform {
+    width: 32px;
+  }
+
+  .figurine-label {
+    font-size: 7px;
+  }
+
+  .crown {
+    font-size: 14px;
+  }
+
+  .grok-hero h2 {
+    font-size: clamp(24px, 9vw, 34px);
+  }
+
+  .grok-hero p {
+    font-size: 13px;
+  }
+
+  .hero-chip {
+    font-size: 10px;
+    padding: 6px 10px;
   }
 }

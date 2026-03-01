@@ -15,7 +15,7 @@ function deAnonymizeText(text, labelToModel) {
   return result;
 }
 
-export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
+export default function Stage2({ rankings, labelToModel, aggregateRankings, streaming }) {
   const [activeTab, setActiveTab] = useState(0);
 
   const safeActiveTab =
@@ -24,6 +24,9 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
   if (!rankings || rankings.length === 0) {
     return null;
   }
+
+  const current = rankings[safeActiveTab];
+  const isCurrentStreaming = current?.streaming;
 
   return (
     <div className="stage stage2">
@@ -39,30 +42,32 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
         {rankings.map((rank, index) => (
           <button
             key={index}
-            className={`tab ${safeActiveTab === index ? 'active' : ''}`}
+            className={`tab ${safeActiveTab === index ? 'active' : ''} ${rank.streaming ? 'streaming' : ''}`}
             onClick={() => setActiveTab(index)}
           >
             {rank.model.split('/')[1] || rank.model}
+            {rank.streaming && <span className="tab-streaming-dot" />}
           </button>
         ))}
       </div>
 
       <div className="tab-content">
         <div className="ranking-model">
-          {rankings[safeActiveTab].model}
+          {current.model}
         </div>
         <div className="ranking-content markdown-content">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {deAnonymizeText(rankings[safeActiveTab].ranking, labelToModel)}
+            {deAnonymizeText(current.ranking || '', labelToModel)}
           </ReactMarkdown>
+          {isCurrentStreaming && <span className="streaming-cursor">▊</span>}
         </div>
 
-        {rankings[safeActiveTab].parsed_ranking &&
-         rankings[safeActiveTab].parsed_ranking.length > 0 && (
+        {!isCurrentStreaming && current.parsed_ranking &&
+         current.parsed_ranking.length > 0 && (
           <div className="parsed-ranking">
             <strong>Extracted Ranking:</strong>
             <ol>
-              {rankings[safeActiveTab].parsed_ranking.map((label, i) => (
+              {current.parsed_ranking.map((label, i) => (
                 <li key={i}>
                   {labelToModel && labelToModel[label]
                     ? labelToModel[label].split('/')[1] || labelToModel[label]

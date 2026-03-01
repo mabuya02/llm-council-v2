@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './Stage1.css';
 
-export default function Stage1({ responses }) {
+export default function Stage1({ responses, streaming }) {
   const [activeTab, setActiveTab] = useState(0);
 
   const safeActiveTab =
@@ -13,6 +13,9 @@ export default function Stage1({ responses }) {
     return null;
   }
 
+  const current = responses[safeActiveTab];
+  const isCurrentStreaming = current?.streaming;
+
   return (
     <div className="stage stage1">
       <h3 className="stage-title">Stage 1: Individual Responses</h3>
@@ -21,18 +24,20 @@ export default function Stage1({ responses }) {
         {responses.map((resp, index) => (
           <button
             key={index}
-            className={`tab ${safeActiveTab === index ? 'active' : ''}`}
+            className={`tab ${safeActiveTab === index ? 'active' : ''} ${resp.streaming ? 'streaming' : ''}`}
             onClick={() => setActiveTab(index)}
           >
             {resp.model.split('/')[1] || resp.model}
+            {resp.streaming && <span className="tab-streaming-dot" />}
           </button>
         ))}
       </div>
 
       <div className="tab-content">
-        <div className="model-name">{responses[safeActiveTab].model}</div>
+        <div className="model-name">{current.model}</div>
         <div className="response-text markdown-content">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{responses[safeActiveTab].response}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{current.response}</ReactMarkdown>
+          {isCurrentStreaming && <span className="streaming-cursor">▊</span>}
         </div>
       </div>
     </div>

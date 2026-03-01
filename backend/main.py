@@ -16,12 +16,15 @@ from .council import (
     run_full_council,
     generate_conversation_title,
     stage1_collect_responses,
+    stage1_prepare,
     stage2_collect_rankings,
+    stage2_prepare,
     stage3_synthesize_final,
     stage3_prepare,
     calculate_aggregate_rankings,
+    parse_ranking_from_text,
 )
-from .llm_client import query_model_stream
+from .llm_client import query_model_stream, query_models_parallel_stream
 from .config import (
     OLLAMA_MODE,
     COUNCIL_MODELS,
@@ -219,19 +222,65 @@ async def send_message_stream(conversation_id: str, request: Request, body: Send
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(body.content))
 
-            # Stage 1: Collect responses (pass history for multi-turn)
+            # ----------------------------------------------------------
+            # Stage 1: Stream individual responses from every model
+            # ----------------------------------------------------------
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
             prior_messages = conversation.get("messages", [])
-            stage1_results = await stage1_collect_responses(body.content, prior_messages)
+            stage1_messages = stage1_prepare(body.content, prior_messages)
+
+            # Collect final model responses as they stream in
+            stage1_accumulated: dict[str, str] = {}  # model -> full text
+
+            async for model, text, is_done in query_models_parallel_stream(
+                COUNCIL_MODELS, stage1_messages
+            ):
+                if is_done:
+                    stage1_accumulated[model] = text
+                    yield f"data: {json.dumps({'type': 'stage1_model_complete', 'model': model, 'response': text})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'stage1_model_token', 'model': model, 'token': text})}\n\n"
+
+            stage1_results = [
+                {"model": m, "response": r}
+                for m, r in stage1_accumulated.items()
+                if r  # only successful responses
+            ]
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
-            # Stage 2: Collect rankings
+            # ----------------------------------------------------------
+            # Stage 2: Stream peer rankings from every model
+            # ----------------------------------------------------------
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(body.content, stage1_results)
+            stage2_messages, label_to_model = stage2_prepare(body.content, stage1_results)
+
+            stage2_accumulated: dict[str, str] = {}
+
+            async for model, text, is_done in query_models_parallel_stream(
+                COUNCIL_MODELS, stage2_messages
+            ):
+                if is_done:
+                    stage2_accumulated[model] = text
+                    yield f"data: {json.dumps({'type': 'stage2_model_complete', 'model': model, 'response': text})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'stage2_model_token', 'model': model, 'token': text})}\n\n"
+
+            stage2_results = []
+            for m, ranking_text in stage2_accumulated.items():
+                if ranking_text:
+                    parsed = parse_ranking_from_text(ranking_text)
+                    stage2_results.append({
+                        "model": m,
+                        "ranking": ranking_text,
+                        "parsed_ranking": parsed,
+                    })
+
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
-            # Stage 3: Stream final answer token by token
+            # ----------------------------------------------------------
+            # Stage 3: Stream chairman synthesis token-by-token
+            # ----------------------------------------------------------
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
             synthesis_model, synthesis_messages = stage3_prepare(
                 body.content, stage1_results, stage2_results
