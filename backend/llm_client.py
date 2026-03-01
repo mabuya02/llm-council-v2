@@ -21,6 +21,15 @@ logger = logging.getLogger(__name__)
 CLOUD_NATIVE_CHAT_URL = "https://ollama.com/api/chat"
 CLOUD_OPENAI_CHAT_COMPLETIONS_URL = "https://api.ollama.ai/v1/chat/completions"
 
+# Limit concurrent cloud requests to avoid 429 rate-limit errors.
+_CLOUD_CONCURRENCY = 2
+_cloud_semaphore = asyncio.Semaphore(_CLOUD_CONCURRENCY)
+
+
+class RateLimitError(Exception):
+    """Raised on HTTP 429 so the retry loop can back off."""
+    pass
+
 
 def _cloud_endpoint_candidates(configured_url: str) -> List[str]:
     """Try configured URL first, then known Ollama cloud alternative if needed."""
@@ -75,26 +84,39 @@ async def query_model(
     Returns:
         Response dict with 'content' and optional metadata, or None if failed
     """
+    # Use more retries for cloud to handle 429 rate-limiting
+    effective_retries = max(_retries, 4) if OLLAMA_MODE == "cloud" else _retries
     last_err: Optional[Exception] = None
-    for attempt in range(_retries + 1):
+    for attempt in range(effective_retries + 1):
         try:
             if OLLAMA_MODE == "cloud":
-                result = await _query_ollama_cloud(model, messages, timeout)
+                async with _cloud_semaphore:
+                    result = await _query_ollama_cloud(model, messages, timeout)
             else:
                 result = await _query_ollama_local(model, messages, timeout)
             if result is not None:
                 return result
+        except RateLimitError as exc:
+            last_err = exc
+            backoff = 2.0 * (attempt + 1)  # 2s, 4s, 6s, 8s …
+            logger.info(
+                "Rate-limited (429) for %s, retry %d/%d in %.1fs",
+                model, attempt + 1, effective_retries, backoff,
+            )
+            if attempt < effective_retries:
+                await asyncio.sleep(backoff)
+                continue
         except Exception as exc:
             last_err = exc
             logger.warning(
                 "Attempt %d/%d for model %s failed: %s",
-                attempt + 1, _retries + 1, model, exc,
+                attempt + 1, effective_retries + 1, model, exc,
             )
-        if attempt < _retries:
+        if attempt < effective_retries:
             await asyncio.sleep(1.5 * (attempt + 1))  # linear backoff
 
     if last_err:
-        logger.error("All %d attempts for model %s exhausted.", _retries + 1, model)
+        logger.error("All %d attempts for model %s exhausted.", effective_retries + 1, model)
     return None
 
 
@@ -154,6 +176,10 @@ async def _query_ollama_cloud(
                             "detail": detail,
                         }
                     )
+
+                    # Raise on 429 so the outer retry loop can back off.
+                    if status_code == 429:
+                        raise RateLimitError(f"429 rate-limited for {model}: {detail}")
 
                     # If the model is not in cloud catalog, trying another endpoint won't help.
                     if _is_model_not_found(status_code, detail):
