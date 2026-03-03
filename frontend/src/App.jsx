@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import StagePanel from './components/StagePanel';
@@ -530,6 +531,7 @@ function App() {
           Stages
         </button>
       </nav>
+      <Analytics />
     </div>
   );
 }
